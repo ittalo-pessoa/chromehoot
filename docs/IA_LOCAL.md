@@ -6,6 +6,19 @@ Ollama **não estava instalado no ambiente desta implementação**. Os testes au
 
 ## Instalação automática no servidor Ubuntu
 
+### Se você inicia o site com `rails s -b 0.0.0.0`
+
+Esse comando, sem `RAILS_ENV` definido, usa **development**, mesmo em um servidor Ubuntu. Nesse caso, execute:
+
+```sh
+ruby script/setup_ai.rb --environment development
+```
+
+O script usa o banco/configuração de desenvolvimento da aplicação, não exige uma chave de produção, aplica a migration e configura a fila em **chromehoot-ai-development.service**, com variáveis em `/etc/chromehoot/ai-development.env`. Não compila assets de produção nesse modo e não altera a unidade/arquivo de variáveis da fila de produção. Reinicie seu Rails com Ctrl+C e `rails s -b 0.0.0.0` após terminar. Não execute simultaneamente o antigo `bin/rails ai:work` manual e o serviço gerenciado sem necessidade.
+
+Por padrão o instalador continua usando `production`. A opção explícita evita trocar de banco apenas porque o terminal não carregou as variáveis. Usar development no servidor não equivale a configurar uma implantação de produção; essa migração deve ser planejada separadamente, preservando os dados existentes.
+
+
 Depois de enviar esta atualização ao servidor, entre na pasta da aplicação **com o mesmo usuário, Ruby e variáveis de ambiente usados pelo deploy** e execute:
 
 ```sh

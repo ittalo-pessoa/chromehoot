@@ -50,4 +50,16 @@ class AiSetupScriptTest < ActiveSupport::TestCase
     assert_includes output, "SIMULAÇÃO"
     assert_includes output, "chromehoot-ai.service"
   end
+  test "development setup uses its own service and credentials file" do
+    setup = ChromehootAiSetup.new([ "--environment", "development" ])
+    setup.instance_variable_set(:@bundle, "/usr/local/bin/bundle")
+    written = {}
+    setup.define_singleton_method(:write_root) { |path, content, mode| written[path] = [ content, mode ] }
+    setup.send(:install_worker)
+    content, = written.fetch("/etc/systemd/system/chromehoot-ai-development.service")
+    assert_includes content, 'Environment="RAILS_ENV=development"'
+    assert_includes content, 'EnvironmentFile="/etc/chromehoot/ai-development.env"'
+    assert_equal "development", setup.instance_variable_get(:@app_env)["RAILS_ENV"]
+    assert_not written.key?("/etc/systemd/system/chromehoot-ai.service")
+  end
 end

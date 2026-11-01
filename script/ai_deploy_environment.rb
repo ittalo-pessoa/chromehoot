@@ -2,9 +2,10 @@
 require 'open3'
 
 class AiDeployEnvironment
-  def initialize(app:, keys:, reader: nil, proc_root: '/proc')
+  def initialize(app:, keys:, reader: nil, proc_root: '/proc', environment: 'production')
     @app = File.realpath(app)
     @keys = keys
+    @environment = environment
     @proc_root = proc_root
     @allowed_uids = [ Process.uid, File.stat(@app).uid ]
     @reader = reader || ->(path) { File.read(path) }
@@ -27,9 +28,9 @@ class AiDeployEnvironment
         nil
       end
       next unless cwd == @app
-      values = self.class.production_values(read(File.join(@proc_root, pid.to_s, 'environ')), @keys)
+      values = self.class.production_values(read(File.join(@proc_root, pid.to_s, 'environ')), @keys, environment: @environment)
       next if values.empty?
-      { label: "ChromeHoot em produção (processo #{pid})", values: values }
+      { label: "ChromeHoot em #{@environment} (processo #{pid})", values: values }
     rescue SystemCallError
       # Processes may exit while /proc is being inspected.
       next
@@ -37,17 +38,17 @@ class AiDeployEnvironment
   end
 
   def file_candidates
-    %w[.env.production.local .env.production .env shared/.env.production shared/.env config/.env.production].filter_map do |name|
+    [ ".env.#{@environment}.local", ".env.#{@environment}", ".env", "shared/.env.#{@environment}", "shared/.env", "config/.env.#{@environment}" ].filter_map do |name|
       path = File.join(@app, name)
       content = read(path)
       next unless content && content.bytesize <= 65_536
       begin
         parsed = ChromehootAiSetup.parse_env(content)
-        next if parsed['RAILS_ENV'] && parsed['RAILS_ENV'] != 'production'
+        next if parsed['RAILS_ENV'] && parsed['RAILS_ENV'] != @environment
         values = parsed.select { |key, value| @keys.include?(key) && !value.empty? }
         next if values.empty?
-        uncertain = File.basename(name) == '.env' && parsed['RAILS_ENV'] != 'production'
-        { label: "Arquivo #{name} da aplicação#{uncertain ? ' (confirme que é de produção)' : ''}", values: values, confirm: uncertain }
+        uncertain = File.basename(name) == '.env' && parsed['RAILS_ENV'] != @environment
+        { label: "Arquivo #{name} da aplicação#{uncertain ? ' (confirme que é de #{@environment})' : ''}", values: values, confirm: uncertain }
       rescue RuntimeError
         # A shell script is not an EnvironmentFile. Never execute it.
         next
@@ -55,13 +56,14 @@ class AiDeployEnvironment
     end
   end
 
-  def self.production_values(raw, keys)
+  def self.production_values(raw, keys, environment: 'production')
     return {} unless raw
     values = raw.split("\0").filter_map do |entry|
       key, value = entry.split('=', 2)
       [ key, value ] if value
     end.to_h
-    return {} unless values['RAILS_ENV'] == 'production' || values['RACK_ENV'] == 'production'
+    effective_environment = values['RAILS_ENV'] || values['RACK_ENV'] || 'development'
+    return {} unless effective_environment == environment
     values.select { |key, value| keys.include?(key) && !value.empty? }
   end
 

@@ -23,9 +23,10 @@ class ChromehootAiSetup
   INI
 
   def initialize(args)
-    @options = { app: File.expand_path('..', __dir__), dry_run: false, diagnose: true }
+    @options = { app: File.expand_path('..', __dir__), dry_run: false, diagnose: true, environment: 'production' }
     parser = OptionParser.new do |p|
       p.banner = 'Uso: ruby script/setup_ai.rb [opções] (Ubuntu com systemd)'
+      p.on('--environment NOME', %w[development production], 'Mesmo ambiente do site: development ou production') { |v| @options[:environment] = v }
       p.on('--env-file CAMINHO', 'Arquivo privado KEY=valor usado pelo deploy') { |v| @options[:env_file] = File.expand_path(v) }
       p.on('--app-service NOME', 'Reiniciar também este serviço web, após configurar') { |v| @options[:app_service] = v }
       p.on('--skip-diagnose', 'Não executar uma geração real ao final') { @options[:diagnose] = false }
@@ -36,10 +37,12 @@ class ChromehootAiSetup
     raise 'Argumentos inesperados. Use --help.' unless args.empty?
     @ruby = RbConfig.ruby
     @user = Etc.getpwuid(Process.uid).name
-    @managed_env = '/etc/chromehoot/ai.env'
+    @environment = @options[:environment]
+    @worker_service = @environment == 'production' ? 'chromehoot-ai.service' : 'chromehoot-ai-development.service'
+    @managed_env = @environment == 'production' ? '/etc/chromehoot/ai.env' : '/etc/chromehoot/ai-development.env'
     @source_env = @options[:env_file] || @managed_env
     @env_path = @managed_env
-    @app_env = { 'RAILS_ENV' => 'production', 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b' }
+    @app_env = { 'RAILS_ENV' => @environment, 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b' }
   end
 
   # EnvironmentFile format: one literal KEY=value per line, optional shell quotes;
@@ -81,6 +84,7 @@ class ChromehootAiSetup
     raise 'Execute este script em Linux/Ubuntu.' unless RUBY_PLATFORM.include?('linux')
     raise 'Aplicação Rails não encontrada.' unless File.file?(File.join(@options[:app], 'bin/rails'))
     puts "ChromeHoot IA · aplicação: #{@options[:app]} · usuário: #{@user} · Ruby: #{RUBY_VERSION}"
+    puts "Ambiente escolhido: #{@environment} · fila: #{@worker_service}"
     puts 'Requer internet para instalar e baixar o modelo. Não publica a porta do Ollama.'
     if @options[:dry_run]
       puts 'SIMULAÇÃO: nenhuma alteração será feita.'
@@ -88,7 +92,7 @@ class ChromehootAiSetup
       puts '2. Instalar Ollama oficial se ausente e configurar serviço local sem nuvem.'
       puts '3. Baixar qwen2.5:1.5b apenas se ainda não estiver instalado.'
       puts '4. Preservar/carregar variáveis privadas do deploy, migrar e compilar assets.'
-      puts '5. Instalar e iniciar chromehoot-ai.service com o usuário e Ruby atuais.'
+      puts "5. Instalar e iniciar #{@worker_service} com o usuário e Ruby atuais."
       puts '6. Executar diagnóstico real.' if @options[:diagnose]
       return
     end
@@ -116,27 +120,27 @@ class ChromehootAiSetup
     command('Baixar modelo local (pode demorar)', 'env', 'OLLAMA_HOST=127.0.0.1:11434', 'ollama', 'pull', 'qwen2.5:1.5b') unless models.include?('qwen2.5:1.5b')
     # Stop this managed worker before migrating/replacing its unit. Other workers
     # use the same PostgreSQL advisory lock and cannot generate concurrently.
-    system(*@sudo, 'systemctl', 'stop', 'chromehoot-ai.service', out: File::NULL, err: File::NULL)
+    system(*@sudo, 'systemctl', 'stop', @worker_service, out: File::NULL, err: File::NULL)
     rails('Aplicar migrations', 'db:migrate')
-    rails('Compilar assets', 'assets:precompile')
+    rails('Compilar assets', 'assets:precompile') if @environment == 'production'
     install_worker
     command('Recarregar serviços', *@sudo, 'systemctl', 'daemon-reload')
-    command('Habilitar fila de IA', *@sudo, 'systemctl', 'enable', '--now', 'chromehoot-ai.service')
-    command('Conferir fila de IA', 'systemctl', 'is-active', '--quiet', 'chromehoot-ai.service')
+    command('Habilitar fila de IA', *@sudo, 'systemctl', 'enable', '--now', @worker_service)
+    command('Conferir fila de IA', 'systemctl', 'is-active', '--quiet', @worker_service)
     command('Reiniciar serviço web informado', *@sudo, 'systemctl', 'restart', @options[:app_service]) if @options[:app_service]
     if @options[:diagnose]
       # Stop our worker during the standalone diagnostic so it cannot compete.
-      command('Pausar fila para diagnóstico', *@sudo, 'systemctl', 'stop', 'chromehoot-ai.service')
+      command('Pausar fila para diagnóstico', *@sudo, 'systemctl', 'stop', @worker_service)
       begin
         rails('Medir geração real com o modelo local', 'runner', 'script/check_ai.rb')
       ensure
-        command('Retomar fila de IA', *@sudo, 'systemctl', 'start', 'chromehoot-ai.service')
+        command('Retomar fila de IA', *@sudo, 'systemctl', 'start', @worker_service)
       end
     end
     puts
     puts 'Instalação concluída. Abra Assistente de IA no painel do professor.'
     puts 'Reinicie o serviço web pelo procedimento habitual do deploy.' unless @options[:app_service]
-    puts 'Logs: sudo journalctl -u chromehoot-ai -f'
+    puts "Logs: sudo journalctl -u #{@worker_service} -f"
   end
 
   private
@@ -149,12 +153,16 @@ class ChromehootAiSetup
       else
         capture('Ler configuração privada existente', *@sudo, 'cat', @source_env)
       end
-      @app_env.merge!(self.class.parse_env(data))
+      values = self.class.parse_env(data)
+      if values['RAILS_ENV'] && values['RAILS_ENV'] != @environment
+        raise 'O arquivo de configuração pertence a outro ambiente. Escolha o mesmo ambiente do site com --environment.'
+      end
+      @app_env.merge!(values)
     elsif @options[:env_file]
       raise 'O arquivo --env-file não existe.'
     end
     ENV_KEYS.each { |key| @app_env[key] = ENV[key] if ENV.key?(key) && !@app_env.key?(key) }
-    @app_env.merge!('RAILS_ENV' => 'production', 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b')
+    @app_env.merge!('RAILS_ENV' => @environment, 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b')
   end
 
   def discover_environment
@@ -169,12 +177,12 @@ class ChromehootAiSetup
         nil
       end
     end
-    candidates = AiDeployEnvironment.new(app: @options[:app], keys: ENV_KEYS, reader: reader).candidates
+    candidates = AiDeployEnvironment.new(app: @options[:app], keys: ENV_KEYS, reader: reader, environment: @environment).candidates
     return if candidates.empty?
     selected = if candidates.size == 1 && !candidates.first[:confirm]
       candidates.first
     else
-      puts 'Escolha a configuração de produção. Nenhum segredo será mostrado:'
+      puts "Escolha a configuração de #{@environment}. Nenhum segredo será mostrado:"
       candidates.each_with_index { |candidate, index| puts "  #{index + 1}. #{candidate[:label]}" }
       raise 'Execute no terminal interativo para escolher a configuração.' unless $stdin.tty?
       print 'Digite apenas o número da configuração usada no site: '
@@ -244,7 +252,7 @@ class ChromehootAiSetup
       User=#{@user}
       WorkingDirectory=#{quote.call(@options[:app])}
       EnvironmentFile=#{quote.call(@env_path)}
-      Environment="RAILS_ENV=production"
+      Environment="RAILS_ENV=#{@environment}"
       Environment="OLLAMA_URL=http://127.0.0.1:11434"
       Environment="OLLAMA_MODEL=qwen2.5:1.5b"
       Environment=#{quote.call("PATH=#{path}")}
@@ -256,7 +264,7 @@ class ChromehootAiSetup
       [Install]
       WantedBy=multi-user.target
     INI
-    write_root('/etc/systemd/system/chromehoot-ai.service', contents, '644')
+    write_root("/etc/systemd/system/#{@worker_service}", contents, '644')
   end
 
   def write_root(path, content, mode)

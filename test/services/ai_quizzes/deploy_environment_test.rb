@@ -53,4 +53,16 @@ class AiDeployEnvironmentTest < ActiveSupport::TestCase
     assert_equal "private-key-not-to-print", setup.instance_variable_get(:@app_env)["SECRET_KEY_BASE"]
     assert_equal "existing-database", setup.instance_variable_get(:@app_env)["DATABASE_URL"]
   end
+  test "development discovery does not use production files or processes" do
+    keys = ChromehootAiSetup::ENV_KEYS
+    assert_equal({ "DATABASE_URL" => "local-development" }, AiDeployEnvironment.production_values("DATABASE_URL=local-development\0", keys, environment: "development"))
+    assert_empty AiDeployEnvironment.production_values("RAILS_ENV=production\0DATABASE_URL=production-db\0", keys, environment: "development")
+    Dir.mktmpdir do |app|
+      File.write(File.join(app, ".env.production"), "SECRET_KEY_BASE=production-only\n")
+      File.write(File.join(app, ".env.development"), "DATABASE_URL=development-only\n")
+      found = AiDeployEnvironment.new(app: app, keys: keys, environment: "development", proc_root: File.join(app, "absent")).candidates
+      assert_equal 1, found.size
+      assert_equal({ "DATABASE_URL" => "development-only" }, found.first[:values])
+    end
+  end
 end

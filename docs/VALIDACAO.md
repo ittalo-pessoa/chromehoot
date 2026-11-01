@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **49 testes, 456 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **51 testes, 467 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -88,3 +88,7 @@ O instalador agora procura variáveis do ChromeHoot já em produção no diretó
 ## Diagnóstico seguro do instalador
 
 O preflight deixou de rotular qualquer falha como falta de credenciais. Agora identifica chave ausente, chave mestra/credenciais inválidas, autenticação ou conexão PostgreSQL, gems, Ruby e permissões. Exibe apenas códigos, orientações e presença de variáveis/arquivos; não replica a saída bruta do Rails. Testes confirmam classificação e ausência de senhas/URLs no resumo. A descoberta foi ampliada para arquivos de produção em `shared/` e `config/`. O erro específico no servidor remoto ainda requer o novo resumo para identificar a causa.
+
+## Ambiente do site iniciado com rails server
+
+Identificado pelo usuário que o servidor é iniciado com `rails s -b 0.0.0.0`, normalmente em development. Adicionada opção explícita `--environment development`, mantendo production como padrão. Desenvolvimento usa unidade e arquivo de variáveis próprios, descobre apenas configurações desse ambiente e não compila assets de produção. Testes confirmam isolamento entre ambientes e descoberta de processos development sem RAILS_ENV explícito. Instalação efetiva no Ubuntu remoto permanece pendente.
