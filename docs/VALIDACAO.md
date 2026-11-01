@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **43 testes, 416 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **46 testes, 430 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -80,3 +80,7 @@ Adicionada fila PostgreSQL de pedidos privados com processo `ai:work`, cliente O
 ## Script de instalação da IA no Ubuntu
 
 Adicionado `script/setup_ai.rb`: preflight de aplicação/banco, instalação oficial do Ollama quando ausente, modelo local, configuração sem nuvem, migration/assets, unidade systemd da fila com usuário e Ruby do deploy e diagnóstico real opcional. Opções de arquivo privado de ambiente, reinício explícito do serviço web e simulação sem alterações. Os testes verificam parser sem execução shell, preservação de caracteres em segredos, rejeição de injeção por quebra de linha, unidade com variáveis em arquivo protegido e simulação sem chamadas mutáveis. Sintaxe e `--dry-run` executados; **a instalação efetiva e a geração real ainda devem ser executadas no Ubuntu do usuário**.
+
+## Recuperação automática do ambiente de produção
+
+O instalador agora procura variáveis do ChromeHoot já em produção no diretório exato da aplicação e de arquivos de ambiente locais, com escolha numérica quando há ambiguidade. Apenas variáveis de banco/segredo reconhecidas são copiadas; os valores não aparecem na saída e nenhuma chave nova é criada. Testes com processos simulados verificam a exclusão de outros projetos e de desenvolvimento, leitura sem executar arquivos e preenchimento de variáveis ausentes sem sobrescrever as existentes. Não foi validado contra o servidor remoto do usuário.

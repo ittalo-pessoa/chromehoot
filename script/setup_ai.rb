@@ -7,6 +7,7 @@ require 'tempfile'
 require 'shellwords'
 require 'rbconfig'
 require 'etc'
+require_relative 'ai_deploy_environment'
 
 class ChromehootAiSetup
   ENV_KEYS = %w[DATABASE_URL CHROMEHOOT_DATABASE_PASSWORD SECRET_KEY_BASE RAILS_MASTER_KEY PGHOST PGPORT PGUSER PGPASSWORD PGSSLMODE RAILS_MAX_THREADS].freeze
@@ -91,7 +92,6 @@ class ChromehootAiSetup
       return
     end
     raise 'systemd não está ativo. No WSL, habilite systemd ou siga docs/IA_LOCAL.md.' unless File.directory?('/run/systemd/system')
-    require_command('curl')
     require_command('systemctl')
     @sudo = Process.uid.zero? ? [] : [ 'sudo' ]
     command('Autorizar configuração dos serviços', *@sudo, '-v') unless @sudo.empty?
@@ -101,9 +101,11 @@ class ChromehootAiSetup
       raise 'Serviço web informado não existe.' unless state == 'loaded'
     end
     load_environment
+    discover_environment unless @options[:env_file]
     @bundle = capture('Localizar Bundler do Ruby atual', @ruby, '-e', 'require "rubygems"; print Gem.bin_path("bundler", "bundle")').strip
     # Fail before installing OS packages if deployment credentials are unavailable.
-    rails('Conferir ambiente e conexão PostgreSQL', 'runner', 'ActiveRecord::Base.connection.select_value("SELECT 1"); raise "Configure SECRET_KEY_BASE ou as credenciais de produção" if Rails.application.secret_key_base.blank?; puts "Ambiente de produção e banco OK"')
+    puts '→ Conferir ambiente e conexão PostgreSQL'
+    capture('O ambiente de produção ainda não está disponível. O script não encontrou todas as credenciais atuais; nenhuma chave nova foi criada', @ruby, File.join(@options[:app], 'bin/rails'), 'runner', 'ActiveRecord::Base.connection.select_value("SELECT 1"); raise "Configure SECRET_KEY_BASE ou as credenciais de produção" if Rails.application.secret_key_base.blank?')
     save_environment
     install_dependencies
     install_ollama
@@ -153,6 +155,35 @@ class ChromehootAiSetup
     end
     ENV_KEYS.each { |key| @app_env[key] = ENV[key] if ENV.key?(key) && !@app_env.key?(key) }
     @app_env.merge!('RAILS_ENV' => 'production', 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b')
+  end
+
+  def discover_environment
+    return if @app_env['SECRET_KEY_BASE'].to_s != '' || @app_env['RAILS_MASTER_KEY'].to_s != ''
+    reader = lambda do |path|
+      begin
+        File.read(path)
+      rescue Errno::EACCES
+        output, _error, status = Open3.capture3(*@sudo, 'cat', path)
+        status.success? ? output : nil
+      rescue SystemCallError
+        nil
+      end
+    end
+    candidates = AiDeployEnvironment.new(app: @options[:app], keys: ENV_KEYS, reader: reader).candidates
+    return if candidates.empty?
+    selected = if candidates.size == 1 && !candidates.first[:confirm]
+      candidates.first
+    else
+      puts 'Escolha a configuração de produção. Nenhum segredo será mostrado:'
+      candidates.each_with_index { |candidate, index| puts "  #{index + 1}. #{candidate[:label]}" }
+      raise 'Execute no terminal interativo para escolher a configuração.' unless $stdin.tty?
+      print 'Digite apenas o número da configuração usada no site: '
+      answer = $stdin.gets.to_s.strip
+      raise 'Escolha inválida. Execute novamente.' unless answer.match?(/\A[1-9][0-9]*\z/) && answer.to_i <= candidates.size
+      candidates[answer.to_i - 1]
+    end
+    selected[:values].each { |key, value| @app_env[key] = value unless @app_env.key?(key) }
+    puts "→ Configuração recuperada: #{selected[:label]} (valores ocultos)."
   end
 
   def save_environment

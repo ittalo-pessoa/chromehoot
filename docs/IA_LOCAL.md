@@ -14,6 +14,8 @@ ruby script/setup_ai.rb
 
 Não coloque `sudo` antes desse comando: o script pede sudo apenas para instalar pacotes e configurar os serviços, mantendo a fila com o usuário do deploy. Se você já faz o deploy como root, ele usa esse mesmo usuário. Execute fora de uma partida, pois instala/configura serviços e faz uma geração de diagnóstico.
 
+O script tenta recuperar a configuração existente do próprio ChromeHoot em produção (processos Ruby/Puma/Passenger no diretório da aplicação e arquivos `.env.production.local`, `.env.production` ou `.env`). Não mostra valores, não gera outra chave e não copia variáveis de processos de outros projetos. Se houver configurações diferentes, pede apenas que você escolha um número; um `.env` sem indicação de produção também exige confirmação. A recuperação depende de o processo/arquivo conter as variáveis; configurações exclusivas de contêineres, nginx/Apache ou outros formatos podem exigir `--env-file`.
+
 O script confere o ambiente de produção e a conexão PostgreSQL antes de instalar; instala ferramentas ausentes e o Ollama oficial se necessário; configura a API apenas em loopback com nuvem desativada; baixa `qwen2.5:1.5b` se ausente; aplica migrations; compila assets; cria e inicia **chromehoot-ai.service**; e executa o diagnóstico real. A instalação inicial precisa de internet e pode demorar devido ao download. Se houver erro, ele interrompe e informa a etapa; a configuração pode estar parcial e o script pode ser executado novamente após corrigir a causa.
 
 Se seu deploy usa um arquivo privado de variáveis que não estão carregadas no terminal:
