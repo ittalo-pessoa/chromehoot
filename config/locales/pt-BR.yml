@@ -1,0 +1,34 @@
+pt-BR:
+  errors:
+    format: "%{attribute} %{message}"
+    messages:
+      blank: "não pode ficar em branco"
+      taken: "já está em uso"
+      invalid: "é inválido"
+      too_short: "deve ter pelo menos %{count} caracteres"
+      too_long: "deve ter no máximo %{count} caracteres"
+      inclusion: "não está no intervalo permitido"
+      not_a_number: "deve ser um número"
+      not_an_integer: "deve ser um número inteiro"
+      greater_than: "deve ser maior que %{count}"
+      confirmation: "não confere com %{attribute}"
+      required: "é obrigatório"
+  activerecord:
+    attributes:
+      user:
+        name: "Nome"
+        email: "E-mail"
+        password: "Senha"
+      quiz:
+        title: "Título"
+        subject: "Disciplina"
+        description: "Descrição"
+      question:
+        statement: "Enunciado"
+        image: "Imagem"
+        time_limit_seconds: "Tempo"
+      participant:
+        nickname: "Apelido"
+        normalized_nickname: "Apelido"
+      choice:
+        text: "Alternativa"

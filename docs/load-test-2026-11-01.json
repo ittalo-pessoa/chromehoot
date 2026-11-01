@@ -1,0 +1,37 @@
+{
+  "measured_at": "2026-11-01T18:01:44-03:00",
+  "rails": "7.2.4",
+  "ruby": "3.1.0",
+  "participants": 50,
+  "requests": 350,
+  "errors": 0,
+  "error_messages": [],
+  "unique_answers": 50,
+  "consistent": true,
+  "stages": {
+    "join": {
+      "requests": 50,
+      "median_ms": 535.56,
+      "p95_ms": 770.22,
+      "max_ms": 811.91
+    },
+    "poll_open": {
+      "requests": 150,
+      "median_ms": 400.71,
+      "p95_ms": 735.25,
+      "max_ms": 775.35
+    },
+    "answer": {
+      "requests": 100,
+      "median_ms": 672.63,
+      "p95_ms": 801.81,
+      "max_ms": 815.95
+    },
+    "poll_final": {
+      "requests": 50,
+      "median_ms": 554.34,
+      "p95_ms": 1051.04,
+      "max_ms": 1090.49
+    }
+  }
+}

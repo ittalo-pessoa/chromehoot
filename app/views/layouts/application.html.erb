@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <title>ChromeHoot · Aprender em equipe</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <%= csrf_meta_tags %><%= csp_meta_tag %>
+  <%= stylesheet_link_tag 'application', 'data-turbo-track': 'reload' %>
+  <%= javascript_importmap_tags %>
+</head>
+<% teacher_area = current_user && controller_path.start_with?('teacher/') %>
+<body class="<%= teacher_area ? 'teacher-layout' : 'public-layout' %>">
+<a href="#main-content" class="skip-link">Pular para o conteúdo</a>
+<% if teacher_area %>
+  <aside class="sidebar" aria-label="Menu do professor">
+    <%= link_to teacher_quizzes_path, class: 'brand' do %><%= render 'application/brand' %><% end %>
+    <p class="sidebar-caption">APRENDER É UMA CONQUISTA</p>
+    <nav class="side-nav" aria-label="Navegação principal">
+      <%= link_to teacher_quizzes_path, class: ('active' if controller_path == 'teacher/quizzes' && action_name == 'index'), aria: { current: (controller_path == 'teacher/quizzes' && action_name == 'index' ? 'page' : nil) } do %><span aria-hidden="true">⌂</span> Painel<% end %>
+      <%= link_to teacher_quizzes_path(anchor: 'my-quizzes') do %><span aria-hidden="true">▤</span> Meus quizzes<% end %>
+      <%= link_to new_teacher_quiz_path, class: ('active' if controller_path == 'teacher/quizzes' && action_name == 'new') do %><span aria-hidden="true">＋</span> Criar quiz<% end %>
+      <%= link_to teacher_game_sessions_path, class: ('active' if controller_path == 'teacher/game_sessions') do %><span aria-hidden="true">▥</span> Partidas e resultados<% end %>
+    </nav>
+    <div class="sidebar-bottom"><div class="profile"><span class="avatar"><%= current_user.name.first.upcase %></span><div><small>Professor</small><strong><%= current_user.name %></strong></div></div><%= button_to '↪ Sair da conta', logout_path, method: :delete, class: 'logout-button' %></div>
+  </aside>
+<% end %>
+<div class="workspace">
+  <header class="topbar">
+    <% if teacher_area %><span class="topbar-label">Seu espaço de aprendizagem</span><% else %><%= link_to root_path, class: 'brand' do %><%= render 'application/brand' %><% end %><% end %>
+    <nav aria-label="Acesso"><span class="local-badge"><span aria-hidden="true">●</span> Ambiente local</span><% unless teacher_area %><%= link_to(current_user ? 'Painel do professor →' : 'Área do professor →', current_user ? teacher_quizzes_path : login_path, class: 'access-link') %><% end %></nav>
+  </header>
+  <main id="main-content"><% flash.each do |kind, message| %><div role="status" class="notice <%= kind %>"><%= message %></div><% end %><%= yield %></main>
+  <footer>ChromeHoot <span>·</span> A turma joga, aprende e cresce junto. <span class="footer-local">Recursos na rede local</span></footer>
+</div>
+</body>
+</html>

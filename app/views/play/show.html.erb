@@ -1,0 +1,6 @@
+<div class="player-area"><div class="player-heading"><div><p class="eyebrow">SUA PRÓXIMA DESCOBERTA</p><h1>Vamos nessa, <%= @participant.nickname %>!</h1></div><span class="player-chip">Sala <strong><%= @participant.game_session.join_code %></strong></span></div>
+<div data-controller="game" data-game-url-value="<%= play_state_path %>" data-game-answer-url-value="<%= play_answer_path %>" data-game-role-value="student">
+  <%= render 'application/music', game: @participant.game_session %>
+  <div data-game-target="status" class="notice" role="status">Conectando à sala…</div>
+  <section data-game-target="content" class="card" aria-live="polite"></section>
+</div><%= button_to 'Sair desta participação', play_path, method: :delete, class: 'secondary', data: { turbo_confirm: 'Ao sair você perde a credencial deste navegador. Continuar?' } %></div>
