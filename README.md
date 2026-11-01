@@ -19,7 +19,9 @@ bin/rails db:prepare
 
 `config/database.yml` usa `chromehoot_development` e `chromehoot_test`, via socket e usuário local por padrão. `DATABASE_URL` pode configurar conexão e credenciais sem versionar segredos. O arquivo `.env.example` é apenas referência; não é carregado automaticamente.
 
-Não há cadastro público nem senha fixa. Para criar o professor e, opcionalmente, o quiz original com cinco questões:
+Professores podem criar a própria conta em **Área do professor → Criar conta de professor** (`/signup`), informando nome, e-mail, senha com pelo menos 12 caracteres e confirmação. O cadastro entra diretamente no painel pessoal. Cada professor continua acessando apenas seus quizzes, partidas e relatórios. Não há verificação do e-mail por envio de mensagem.
+
+Para criar a conta pelo terminal e, opcionalmente, o quiz original com cinco questões:
 
 ```sh
 read -r -p 'E-mail do professor: ' TEACHER_EMAIL

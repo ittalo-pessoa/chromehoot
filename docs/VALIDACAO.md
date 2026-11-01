@@ -4,7 +4,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 
 ## Etapas
 
-1. **Base:** autenticação `has_secure_password`, sem cadastro público; sessão assinada com expiração, CSRF, logout, layout local e limitação de tentativas por e-mail. Validado por integração com login inválido, login válido, expiração/proteção de acesso e logout. A suíte verifica acesso protegido; a expiração é aplicada no filtro de autenticação.
+1. **Base:** autenticação `has_secure_password`, com cadastro público de professor adicionado por solicitação posterior; sessão assinada com expiração, CSRF, logout, layout local e limitação de tentativas por e-mail. Validado por integração com login inválido, login válido, expiração/proteção de acesso e logout. A suíte verifica acesso protegido; a expiração é aplicada no filtro de autenticação.
 2. **Conteúdo:** CRUD de quizzes, arquivamento, duplicação, editor de duas a cinco alternativas, validação da questão completa, ordenação e imagens locais limitadas a 5 MB (PNG/JPEG/WebP). Validados editor HTTP, ordenação, duplicação, quiz vazio/sem correta/com várias corretas e rejeição de SVG.
 3. **Partida:** snapshots imutáveis pelo modelo, cópia da imagem via blob local, código aleatório de seis dígitos com zeros preservados, espera, apelido normalizado único e credencial aleatória com digest. Entrada só enquanto aguardando; remoção mantém histórico. Validados snapshots após edição, imagem após remover vínculo do original, código inválido/repetido/encerrado e cookie recuperado sem duplicação.
 4. **Jogo:** serviços transacionais com bloqueio consistente partida→rodada, prazo do servidor, fechamento tardio idempotente, pontuação e resposta única. Polling Stimulus sem sobreposição, reconexão, comandos e projeção autenticada. Validada partida completa por HTTP com professor e dois navegadores lógicos, além de conexões PostgreSQL concorrentes para resposta duplicada e corrida fechar/responder. Repetir avanço com a rodada anterior já avançada não cria outra rodada.
@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **25 testes, 247 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **30 testes, 299 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -66,3 +66,7 @@ O cookie anterior só recupera a participação se o código informado correspon
 Upload de áudio por quiz (MP3/OGG/WAV/M4A, até 15 MB), snapshot nas novas salas e controles opt-in com volume inicial de 8%, limite visual de 20%, loop e pausa ao fechar a questão ou sair da página. Nenhuma gravação comercial incluída. Integração verifica upload por HTTP, validação de tipo, arquivo local idêntico ao enviado, snapshot preservado após remover o vínculo do quiz e ausência de controles quando não há áudio.
 
 `node test/javascript/music_controller_test.mjs`: aprovado para opt-in, volume inicial, loop, transições entre questões, silenciamento, rejeição de reprodução e limpeza do player. O teste usa um objeto de áudio simulado, não reproduz som real. Teste auditivo em Chrome/Chromebook, formatos/codecs e permissão de reprodução ainda requer navegador físico. API consultada: https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play.
+
+## Cadastro de professor pela interface
+
+Nova entrada em `/signup`, acessível pelo login, com nome, e-mail normalizado, senha de no mínimo 12 caracteres e confirmação obrigatória também no servidor. O cadastro autentica a nova conta com sessão renovada. Campos permitidos explícitos; a conta começa sem conteúdo e mantém as restrições de propriedade existentes. E-mail duplicado não altera a conta original. Limite de cinco tentativas por navegador em 15 minutos, sem limitar a turma pelo IP compartilhado. Não há envio de confirmação por e-mail. Testes cobrem cadastro, login subsequente, senha curta, confirmação divergente/ausente, campos de senha vazios no HTML de erro, duplicidade, sessão existente, CSRF e limite por navegador. Alteração local; ainda requer deploy para aparecer em produção.

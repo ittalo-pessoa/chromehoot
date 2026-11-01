@@ -19,6 +19,7 @@ pt-BR:
         name: "Nome"
         email: "E-mail"
         password: "Senha"
+        password_confirmation: "Confirmação de senha"
       quiz:
         title: "Título"
         subject: "Disciplina"

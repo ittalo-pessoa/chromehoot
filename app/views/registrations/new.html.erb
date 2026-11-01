@@ -1,0 +1,19 @@
+<section class="card narrow">
+  <p class="eyebrow">ÁREA DO PROFESSOR</p>
+  <h1>Seu próximo desafio começa aqui.</h1>
+  <p>Crie seu perfil para preparar quizzes e acompanhar sua turma.</p>
+  <%= render 'shared_errors', record: @user %>
+  <%= form_with model: @user, url: signup_path do |f| %>
+    <%= f.label :name, 'Seu nome' %>
+    <%= f.text_field :name, required: true, maxlength: 100, autocomplete: 'name' %>
+    <%= f.label :email, 'E-mail' %>
+    <%= f.email_field :email, required: true, autocomplete: 'email' %>
+    <%= f.label :password, 'Senha' %>
+    <%= f.password_field :password, required: true, minlength: 12, autocomplete: 'new-password', aria: { describedby: 'password-hint' } %>
+    <p id="password-hint" class="form-hint">Use pelo menos 12 caracteres.</p>
+    <%= f.label :password_confirmation, 'Confirme sua senha' %>
+    <%= f.password_field :password_confirmation, required: true, minlength: 12, autocomplete: 'new-password' %>
+    <%= f.submit 'Criar minha conta' %>
+  <% end %>
+  <p class="auth-switch">Já tem uma conta? <%= link_to 'Entrar como professor', login_path %></p>
+</section>

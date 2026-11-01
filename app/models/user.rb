@@ -1,5 +1,6 @@
 class User < ApplicationRecord
   has_secure_password
+  validates :password_confirmation, presence: true, on: :registration
   has_many :quizzes, dependent: :restrict_with_error
   has_many :game_sessions, dependent: :restrict_with_error
   normalizes :email, with: ->(value) { value.strip.downcase }
