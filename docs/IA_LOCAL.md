@@ -1,0 +1,153 @@
+# Assistente de quizzes sem internet
+
+O ChromeHoot gera sugestões usando **Ollama local**, com `qwen2.5:1.5b` como padrão inicial para o servidor Ubuntu com i5 e 8 GB de RAM. O modelo precisa ser medido nesse computador; não há garantia de latência ou qualidade pedagógica. Na configuração padrão, cada pedido contém de três a cinco questões com quatro alternativas. Tudo passa por revisão explícita do professor antes de virar um quiz.
+
+Ollama **não estava instalado no ambiente desta implementação**. Os testes automatizados validaram a integração usando um servidor HTTP local controlado, não inferência real. Os comandos abaixo são necessários em cada máquina que vai gerar sugestões. O servidor de produção Ubuntu é separado do Windows/WSL de desenvolvimento; instalar no WSL não instala no servidor.
+
+## 1. Instalar no Ubuntu (produção) ou dentro do WSL (teste)
+
+A instalação e o primeiro download exigem internet. Consulte a [instalação oficial Linux](https://docs.ollama.com/linux). Baixe e confira o instalador oficial antes de executá-lo:
+
+```sh
+curl -fsSL https://ollama.com/install.sh -o /tmp/chromehoot-ollama-install.sh
+less /tmp/chromehoot-ollama-install.sh
+sh /tmp/chromehoot-ollama-install.sh
+ollama --version
+```
+
+Com systemd disponível, configure o serviço local:
+
+```sh
+sudo systemctl edit ollama
+```
+
+Inclua:
+
+```ini
+[Service]
+Environment="OLLAMA_HOST=127.0.0.1:11434"
+Environment="OLLAMA_NO_CLOUD=1"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_CONTEXT_LENGTH=4096"
+Environment="OLLAMA_KEEP_ALIVE=0"
+```
+
+Depois:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+sudo systemctl enable ollama
+ollama pull qwen2.5:1.5b
+ollama list
+curl --fail http://127.0.0.1:11434/api/tags
+```
+
+Se o WSL não tiver systemd, mantenha um terminal com o processo abaixo e execute o `ollama pull` em outro terminal. Não inicie uma segunda instância se já existe uma ouvindo na porta 11434:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_CONTEXT_LENGTH=4096 OLLAMA_KEEP_ALIVE=0 ollama serve
+```
+
+Instale o Ollama dentro do mesmo Ubuntu/WSL onde o Rails roda, para ambos acessarem o loopback. Se a produção usa contêiner, o loopback é o do contêiner; essa topologia exige configuração adicional e não foi validada. Não exponha a porta 11434 aos alunos ou à internet.
+
+Não há API paga nem fallback para nuvem. O cliente Rails aceita apenas `http://127.0.0.1`, `http://localhost` ou `http://[::1]`, com a porta configurada. Não segue redirects e não usa proxy HTTP do ambiente. O serviço Ollama também precisa ter `OLLAMA_NO_CLOUD=1`. Nenhum pedido da interface baixa modelos automaticamente.
+
+## 2. Atualizar a aplicação e iniciar a fila
+
+Nesta atualização **há uma migration** para `ai_quiz_drafts`. No servidor, faça o deploy habitual e execute:
+
+```sh
+RAILS_ENV=production bin/rails db:migrate
+RAILS_ENV=production bin/rails assets:precompile
+```
+
+Configure estas variáveis no processo Rails e no processo da fila (os valores abaixo já são os padrões):
+
+```sh
+OLLAMA_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:1.5b
+```
+
+Reinicie os processos da aplicação depois do deploy. É necessário um processo separado para executar os pedidos, usando a mesma versão do código, ambiente, banco e credenciais do Rails:
+
+```sh
+# Produção:
+RAILS_ENV=production bin/rails ai:work
+
+# Desenvolvimento dentro do WSL, em outro terminal:
+bin/rails ai:work
+```
+
+O site permanece disponível enquanto o processo de IA espera a resposta. A fila fica no PostgreSQL e os pedidos sobrevivem a recarregamentos e reinícios. Sem o processo `ai:work`, os pedidos ficam na fila; iniciar apenas `ollama serve` não executa a fila da aplicação.
+
+Para produção, supervisione esse processo. Exemplo systemd, adaptando usuário, diretórios, caminho do Bundler e arquivo privado de variáveis ao deploy real:
+
+```ini
+[Unit]
+Description=ChromeHoot - fila de IA local
+After=network.target postgresql.service ollama.service
+
+[Service]
+Type=simple
+User=USUARIO_DA_APLICACAO
+WorkingDirectory=/CAMINHO/DO/CHROMEHOOT
+Environment=RAILS_ENV=production
+EnvironmentFile=/CAMINHO/PRIVADO/chromehoot.env
+ExecStart=/CAMINHO/DO/RUBY/bin/bundle exec rake ai:work
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=210
+
+[Install]
+WantedBy=multi-user.target
+```
+
+O arquivo de variáveis precisa definir as mesmas credenciais do banco/segredo da aplicação e o ambiente Ruby correspondente. Não copie valores literais de exemplo para produção. O tratamento de TERM/INT permite concluir a solicitação em andamento antes de encerrar; se o processo for interrompido à força, a próxima execução identifica pedidos em processamento e os marca como falha, permitindo novo pedido.
+
+## 3. Usar pela interface
+
+1. Entre como professor e abra **Assistente de IA** no menu ou **Criar quiz com IA local** no painel.
+2. Informe tema, disciplina, série, dificuldade e três a cinco questões.
+3. Aguarde a geração. Pode sair e voltar em **Meus últimos pedidos**; os rascunhos são privados.
+4. Revise título, descrição, enunciados, quatro alternativas, tempo e alternativa correta. Não trate a resposta da IA como fonte confiável por si só.
+5. Marque **Revisei os enunciados, as alternativas e o gabarito** e clique em **Salvar quiz revisado**.
+6. O quiz salvo usa os mesmos formulários, snapshots e partidas existentes. A partir daí, jogar não depende de Ollama.
+
+Não são enviados nomes, e-mails, respostas ou dados dos alunos ao modelo: somente tema, disciplina, série, dificuldade e quantidade. Os textos não são comandos executáveis. Os JSONs são validados quanto a formato, limites, quantidade, alternativas diferentes e gabarito único antes de salvar. Isso valida a estrutura, não a correção dos fatos. Importação é transacional e repetir o salvamento não duplica o quiz.
+
+## 4. Limites para 8 GB de RAM
+
+- Uma geração global por vez, protegida por bloqueio consultivo PostgreSQL, inclusive com múltiplos processos de fila.
+- Um pedido pendente por professor; até oito tentativas por professor em 15 minutos.
+- Novas gerações aguardam na fila enquanto existir partida em estado `running`. Uma geração que já começou pode continuar caso um professor inicie uma partida; prepare os quizzes antes da aula.
+- Contexto de 4096 tokens, até 2500 tokens de saída e dois threads de CPU por requisição; esses valores são um ponto inicial, não desempenho medido.
+- Limite total de três minutos por chamada, conexão de cinco segundos e resposta limitada a 128 KiB. Erros e JSON incompleto ficam visíveis no pedido, sem salvar quiz parcial.
+- `keep_alive: 0` solicita descarregar o modelo após a geração. O limite do cliente não é garantia de cancelamento imediato do cálculo no servidor Ollama; monitore seu processo em caso de timeout.
+
+## 5. Validar o modelo real e o modo offline
+
+Com Ollama rodando e o modelo instalado, dentro do diretório da aplicação:
+
+```sh
+# Desenvolvimento:
+bin/rails runner script/check_ai.rb
+
+# Produção:
+RAILS_ENV=production bin/rails runner script/check_ai.rb
+```
+
+Esse diagnóstico faz uma geração real, mede a duração, valida a estrutura e escreve `tmp/ai-smoke-test.json`, sem criar um quiz no banco. Revise o gabarito e registre o resultado, a versão obtida com `ollama --version`, o i5 exato e o consumo de memória observado. Execute fora de partidas e sem outros pedidos em geração: o diagnóstico é direto e não passa pela fila.
+
+Confira a liberação de memória com `ollama ps` após a resposta e uso do servidor com `free -h`/`top`. Desconecte o acesso externo mantendo a rede local ativa e repita uma geração pela UI. Faça uma aula de teste antes de considerar o recurso validado nesse servidor.
+
+Os testes automatizados disponíveis são:
+
+```sh
+bin/rails test
+```
+
+Eles cobrem conexão HTTP local, schema/options/keep_alive enviados, modelo ausente, JSON malformado, resposta grande, rejeição de endereço remoto, fila e falha recuperável, revisão, permissões e salvamento idempotente. Não medem a qualidade ou o tempo de um modelo real.
+
+Referências: [API chat](https://docs.ollama.com/api/chat), [saída estruturada](https://docs.ollama.com/capabilities/structured-outputs), [configuração e memória](https://docs.ollama.com/faq), [modelo Qwen2.5](https://ollama.com/library/qwen2.5).

@@ -15,6 +15,12 @@ pt-BR:
       required: "é obrigatório"
   activerecord:
     attributes:
+      ai_quiz_draft:
+        topic: "Tema"
+        subject: "Disciplina"
+        grade_level: "Série"
+        difficulty: "Dificuldade"
+        question_count: "Quantidade de questões"
       user:
         name: "Nome"
         email: "E-mail"

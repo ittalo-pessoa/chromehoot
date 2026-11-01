@@ -53,6 +53,12 @@ O cookie assinado e HttpOnly recupera a participação ao atualizar/reabrir o na
 
 O aluno consulta o estado a cada 2 segundos durante uma questão e a cada 4 segundos na espera; o controle consulta a cada 2 segundos. As consultas não se sobrepõem, têm limite de espera e param ao encerrar/desconectar a tela. O relógio visual usa o horário do servidor. Gabarito, acerto individual e pontuação só são enviados após revelação. O placar público inclui apenas rodadas reveladas.
 
+## Assistente de IA local (opcional)
+
+No painel, use **Criar quiz com IA local** para gerar três a cinco questões sobre um tema e revisar antes de salvar. Usa Ollama local com `qwen2.5:1.5b`, sem chamadas para APIs pagas. Depois de instalar e baixar o modelo, a geração funciona sem internet. As partidas continuam independentes da IA.
+
+**Esta atualização exige `bin/rails db:migrate` e um processo separado `bin/rails ai:work`**, além do Ollama. Na produção, use `RAILS_ENV=production` e supervisione o processo da fila. A instalação deve ser feita separadamente no servidor Ubuntu e no WSL de testes. Veja [instalação, operação e diagnóstico da IA local](docs/IA_LOCAL.md). O modelo real ainda precisa ser instalado e medido no i5/8 GB; os testes de integração usaram uma resposta HTTP local controlada.
+
 ## Música opcional nas perguntas
 
 Em **Editar informações** do quiz, envie a música em MP3, OGG, WAV ou M4A (até 15 MB), salve e crie uma **nova sala**. O áudio é copiado para a partida, servido pelo Active Storage local e incluído no backup de arquivos. Alterar o quiz não muda a música de uma sala já criada. Não foi incluída a gravação de Super Mario World: é necessário fornecer o arquivo desejado.

@@ -19,6 +19,7 @@
       <%= link_to teacher_quizzes_path(anchor: 'my-quizzes') do %><span aria-hidden="true">▤</span> Meus quizzes<% end %>
       <%= link_to new_teacher_quiz_path, class: ('active' if controller_path == 'teacher/quizzes' && action_name == 'new') do %><span aria-hidden="true">＋</span> Criar quiz<% end %>
       <%= link_to teacher_game_sessions_path, class: ('active' if controller_path == 'teacher/game_sessions') do %><span aria-hidden="true">▥</span> Partidas e resultados<% end %>
+      <%= link_to new_teacher_ai_quiz_path, class: ('active' if controller_path == 'teacher/ai_quizzes') do %><span aria-hidden="true">✦</span> Assistente de IA<% end %>
     </nav>
     <div class="sidebar-bottom"><div class="profile"><span class="avatar"><%= current_user.name.first.upcase %></span><div><small>Professor</small><strong><%= current_user.name %></strong></div></div><%= button_to '↪ Sair da conta', logout_path, method: :delete, class: 'logout-button' %></div>
   </aside>

@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **30 testes, 299 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **39 testes, 391 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -70,3 +70,9 @@ Upload de áudio por quiz (MP3/OGG/WAV/M4A, até 15 MB), snapshot nas novas sala
 ## Cadastro de professor pela interface
 
 Nova entrada em `/signup`, acessível pelo login, com nome, e-mail normalizado, senha de no mínimo 12 caracteres e confirmação obrigatória também no servidor. O cadastro autentica a nova conta com sessão renovada. Campos permitidos explícitos; a conta começa sem conteúdo e mantém as restrições de propriedade existentes. E-mail duplicado não altera a conta original. Limite de cinco tentativas por navegador em 15 minutos, sem limitar a turma pelo IP compartilhado. Não há envio de confirmação por e-mail. Testes cobrem cadastro, login subsequente, senha curta, confirmação divergente/ausente, campos de senha vazios no HTML de erro, duplicidade, sessão existente, CSRF e limite por navegador. Alteração local; ainda requer deploy para aparecer em produção.
+
+## Assistente de IA local
+
+Adicionada fila PostgreSQL de pedidos privados com processo `ai:work`, cliente Ollama limitado a loopback, modelo padrão `qwen2.5:1.5b`, opções de memória e descarregamento após geração. Fluxo real: formulário, fila, polling de estado autorizado, revisão editável com confirmação obrigatória e importação transacional/idempotente. Um teste com conexões PostgreSQL independentes confirma que dois processos não geram simultaneamente nem marcam incorretamente o pedido ativo como falha. O teste HTTP usa um servidor TCP local que confere o pedido enviado e devolve respostas controladas; cobre schema, memória/keep_alive, modelo ausente, JSON inválido e limite de tamanho. Os testes de aplicação cobrem rascunho sem quiz salvo, propriedade por professor, validação de parâmetros, espera durante jogo, erro recuperável e edição do gabarito antes de importar.
+
+**Sem medição de inferência real:** Ollama não estava instalado neste ambiente. Instalação e diagnóstico real estão em [IA_LOCAL.md](IA_LOCAL.md); `script/check_ai.rb` mede uma geração no computador de destino sem salvar quizzes. Produção ainda exige migration, deploy, modelo baixado e processo da fila supervisionado. A política inicial do documento de projeto que excluía IA foi ampliada pela solicitação posterior do usuário; os fluxos básicos permanecem independentes da IA.
