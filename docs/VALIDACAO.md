@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **46 testes, 430 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **49 testes, 456 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -84,3 +84,7 @@ Adicionado `script/setup_ai.rb`: preflight de aplicação/banco, instalação of
 ## Recuperação automática do ambiente de produção
 
 O instalador agora procura variáveis do ChromeHoot já em produção no diretório exato da aplicação e de arquivos de ambiente locais, com escolha numérica quando há ambiguidade. Apenas variáveis de banco/segredo reconhecidas são copiadas; os valores não aparecem na saída e nenhuma chave nova é criada. Testes com processos simulados verificam a exclusão de outros projetos e de desenvolvimento, leitura sem executar arquivos e preenchimento de variáveis ausentes sem sobrescrever as existentes. Não foi validado contra o servidor remoto do usuário.
+
+## Diagnóstico seguro do instalador
+
+O preflight deixou de rotular qualquer falha como falta de credenciais. Agora identifica chave ausente, chave mestra/credenciais inválidas, autenticação ou conexão PostgreSQL, gems, Ruby e permissões. Exibe apenas códigos, orientações e presença de variáveis/arquivos; não replica a saída bruta do Rails. Testes confirmam classificação e ausência de senhas/URLs no resumo. A descoberta foi ampliada para arquivos de produção em `shared/` e `config/`. O erro específico no servidor remoto ainda requer o novo resumo para identificar a causa.

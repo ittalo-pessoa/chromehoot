@@ -37,7 +37,7 @@ class AiDeployEnvironment
   end
 
   def file_candidates
-    %w[.env.production.local .env.production .env].filter_map do |name|
+    %w[.env.production.local .env.production .env shared/.env.production shared/.env config/.env.production].filter_map do |name|
       path = File.join(@app, name)
       content = read(path)
       next unless content && content.bytesize <= 65_536
@@ -46,7 +46,7 @@ class AiDeployEnvironment
         next if parsed['RAILS_ENV'] && parsed['RAILS_ENV'] != 'production'
         values = parsed.select { |key, value| @keys.include?(key) && !value.empty? }
         next if values.empty?
-        uncertain = name == '.env' && parsed['RAILS_ENV'] != 'production'
+        uncertain = File.basename(name) == '.env' && parsed['RAILS_ENV'] != 'production'
         { label: "Arquivo #{name} da aplicação#{uncertain ? ' (confirme que é de produção)' : ''}", values: values, confirm: uncertain }
       rescue RuntimeError
         # A shell script is not an EnvironmentFile. Never execute it.

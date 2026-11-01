@@ -8,6 +8,7 @@ require 'shellwords'
 require 'rbconfig'
 require 'etc'
 require_relative 'ai_deploy_environment'
+require_relative "ai_setup_diagnosis"
 
 class ChromehootAiSetup
   ENV_KEYS = %w[DATABASE_URL CHROMEHOOT_DATABASE_PASSWORD SECRET_KEY_BASE RAILS_MASTER_KEY PGHOST PGPORT PGUSER PGPASSWORD PGSSLMODE RAILS_MAX_THREADS].freeze
@@ -104,8 +105,7 @@ class ChromehootAiSetup
     discover_environment unless @options[:env_file]
     @bundle = capture('Localizar Bundler do Ruby atual', @ruby, '-e', 'require "rubygems"; print Gem.bin_path("bundler", "bundle")').strip
     # Fail before installing OS packages if deployment credentials are unavailable.
-    puts '→ Conferir ambiente e conexão PostgreSQL'
-    capture('O ambiente de produção ainda não está disponível. O script não encontrou todas as credenciais atuais; nenhuma chave nova foi criada', @ruby, File.join(@options[:app], 'bin/rails'), 'runner', 'ActiveRecord::Base.connection.select_value("SELECT 1"); raise "Configure SECRET_KEY_BASE ou as credenciais de produção" if Rails.application.secret_key_base.blank?')
+    preflight_application
     save_environment
     install_dependencies
     install_ollama
@@ -184,6 +184,16 @@ class ChromehootAiSetup
     end
     selected[:values].each { |key, value| @app_env[key] = value unless @app_env.key?(key) }
     puts "→ Configuração recuperada: #{selected[:label]} (valores ocultos)."
+  end
+
+  def preflight_application
+    puts '→ Conferir ambiente e conexão PostgreSQL'
+    code = 'ActiveRecord::Base.connection.select_value("SELECT 1"); raise "Configure SECRET_KEY_BASE ou as credenciais de produção" if Rails.application.secret_key_base.blank?'
+    output, error, status = Open3.capture3(@app_env, @ruby, File.join(@options[:app], 'bin/rails'), 'runner', code, chdir: @options[:app])
+    return if status.success?
+    summary = AiSetupDiagnosis.safe_summary(output + "\n" + error, env: @app_env, app: @options[:app])
+    warn summary
+    raise 'A configuração parou antes de instalar ou alterar o banco. Envie o resumo Diagnóstico acima; ele não contém senhas.'
   end
 
   def save_environment
