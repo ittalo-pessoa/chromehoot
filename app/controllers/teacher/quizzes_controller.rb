@@ -1,6 +1,6 @@
 module Teacher
   class QuizzesController < BaseController
-    before_action :set_quiz, only: %i[show edit update destroy duplicate]
+    before_action :set_quiz, only: %i[show edit update destroy duplicate archive]
 
     def index
       @quizzes = current_user.quizzes.where(archived_at: nil).order(created_at: :desc)
@@ -29,6 +29,11 @@ module Teacher
       end
     end
     def destroy
+      result = Quizzes::Delete.call(@quiz)
+      message = result == :deleted ? "Quiz excluído." : "Quiz removido do painel. O histórico das partidas foi preservado."
+      redirect_to teacher_quizzes_path, notice: message, status: :see_other
+    end
+    def archive
       @quiz.update!(archived_at: Time.current)
       redirect_to teacher_quizzes_path, notice: "Quiz arquivado. O histórico foi preservado.", status: :see_other
     end

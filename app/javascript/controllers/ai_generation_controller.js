@@ -18,6 +18,11 @@ export default class extends Controller {
     this.deadline = setTimeout(() => this.abort.abort(), 10000)
     try {
       const response = await fetch(this.urlValue, { headers: { Accept: "application/json" }, cache: "no-store", signal: this.abort.signal })
+      if (response.status === 404) {
+        this.titleTarget.textContent = "Pedido excluído"
+        this.messageTarget.textContent = "Este pedido não está mais na fila. Volte aos seus pedidos para criar outro."
+        return
+      }
       if (!response.ok) throw new Error("Falha ao consultar pedido")
       const state = await response.json()
       if (this.stopped) return

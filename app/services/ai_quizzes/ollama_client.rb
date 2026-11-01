@@ -23,6 +23,7 @@ module AiQuizzes
       combined = nil
       remaining = draft.question_count
       while remaining.positive?
+        raise GameError, "Este pedido de IA foi excluído." if draft.persisted? && !AiQuizDraft.exists?(draft.id)
         size = remaining == 6 ? 3 : remaining == 7 ? 4 : [ remaining, 5 ].min
         batch = draft.dup
         batch.question_count = size

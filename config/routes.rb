@@ -12,7 +12,7 @@ Rails.application.routes.draw do
   post "play/answer" => "play#answer"
   delete "play" => "play#leave"
   namespace :teacher do
-    resources :ai_quizzes, only: %i[new create show] do
+    resources :ai_quizzes, only: %i[new create show destroy] do
       member do
         get :state
         post :import
@@ -20,6 +20,7 @@ Rails.application.routes.draw do
     end
     resources :quizzes do
       post :duplicate, on: :member
+      patch :archive, on: :member
       resources :questions, except: %i[index show] do
         patch :move, on: :member
       end

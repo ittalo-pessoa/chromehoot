@@ -1,6 +1,6 @@
 module Teacher
   class AiQuizzesController < BaseController
-    before_action :set_draft, only: %i[show state import]
+    before_action :set_draft, only: %i[show state import destroy]
 
     def new
       @draft = current_user.ai_quiz_drafts.new(question_count: 3, difficulty: "easy")
@@ -43,6 +43,11 @@ module Teacher
       @review ||= @draft.content
       flash.now[:alert] = error.is_a?(GameError) ? error.message : error.record.errors.full_messages.join(", ")
       render :show, status: :unprocessable_entity
+    end
+
+    def destroy
+      @draft.with_lock { @draft.destroy! }
+      redirect_to new_teacher_ai_quiz_path, notice: "Pedido de IA excluído. Um quiz já salvo a partir dele permanece nos seus quizzes.", status: :see_other
     end
 
     private

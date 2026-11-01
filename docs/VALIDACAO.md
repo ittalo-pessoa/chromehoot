@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **55 testes, 489 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **60 testes, 531 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -100,3 +100,7 @@ Limite ampliado de 3–5 para 3–20, com migration do check PostgreSQL. O clien
 ## Correção da unidade systemd da fila
 
 Reproduzido com systemd 249: `WorkingDirectory` entre aspas era interpretado como caminho não absoluto, causando `bad unit file setting`; `EnvironmentFile` também era ignorado quando entre aspas. Corrigidos ambos os caminhos, mantendo quoting apropriado apenas para argumentos e atribuições de ambiente. O instalador agora executa `systemd-analyze verify --man=no` antes de gravar a unidade. Teste usa o parser real do systemd para confirmar sucesso e ausência do aviso de caminho inválido. Nenhum serviço foi instalado no ambiente local para essa verificação.
+
+## Exclusão de quizzes e pedidos de IA
+
+Botões com confirmação nos quizzes, histórico de pedidos e tela de revisão/espera. Quizzes sem partidas são apagados com questões e alternativas; quizzes com partidas são arquivados, preservando snapshots e relatórios. Pedidos de IA podem ser apagados em qualquer estado e a exclusão não remove quizzes importados. A fila grava resultados/erros somente se o pedido continua em processamento, evitando reaparecimento após exclusão. O cliente verifica se o pedido ainda existe antes de cada lote. Testes cobrem propriedade, exclusão física, preservação histórica, vínculo da importação, novo pedido após limpar a fila e descarte tanto de sucesso quanto de erro após exclusão durante geração.

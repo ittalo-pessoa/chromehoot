@@ -215,3 +215,7 @@ Esta ampliação exige nova migration. Reexecute o instalador no mesmo ambiente 
 ## Se apareceu “bad unit file setting” na fila
 
 Uma versão anterior do instalador gerava aspas indevidas em `WorkingDirectory` e `EnvironmentFile`. O Ollama e o modelo podiam instalar normalmente, mas a fila não iniciava. Após atualizar o código, reexecute `ruby script/setup_ai.rb --environment development` (ou o ambiente correto do site). A unidade será corrigida e validada com `systemd-analyze verify` antes da instalação. O modelo já baixado é reaproveitado. O aviso de CPU-only não é essa falha de configuração.
+
+## Remover pedidos indesejados
+
+Cada pedido em Meus últimos pedidos e na própria tela tem botão Excluir com confirmação. Pedidos em fila são removidos antes da geração. Em processamento, o cálculo atual no Ollama pode terminar, mas o resultado não é salvo e nenhum lote seguinte é solicitado. A exclusão não apaga um quiz já importado. Apenas o dono pode excluir. Pedidos pendentes não são a causa de erro de sintaxe da unidade systemd.

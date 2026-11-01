@@ -19,11 +19,11 @@ module AiQuizzes
             content = (client || OllamaClient.new).generate(draft)
             # Validate even an alternative client before storing its content.
             content = Content.call(content, count: draft.question_count)
-            draft.update!(status: "ready", content: content, completed_at: Time.current)
+            AiQuizDraft.where(id: draft.id, status: "processing").update_all(status: "ready", content: content, completed_at: Time.current, updated_at: Time.current)
           rescue StandardError => error
             message = error.is_a?(GameError) ? error.message : "A geração falhou. Confira os logs do processo de IA e tente novamente."
             Rails.logger.error("AI draft #{draft.id}: #{error.class}")
-            draft.update!(status: "failed", error_message: message, completed_at: Time.current)
+            AiQuizDraft.where(id: draft.id, status: "processing").update_all(status: "failed", error_message: message, completed_at: Time.current, updated_at: Time.current)
           end
           true
         ensure
