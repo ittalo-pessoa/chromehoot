@@ -4,6 +4,45 @@ O ChromeHoot gera sugestões usando **Ollama local**, com `qwen2.5:1.5b` como pa
 
 Ollama **não estava instalado no ambiente desta implementação**. Os testes automatizados validaram a integração usando um servidor HTTP local controlado, não inferência real. Os comandos abaixo são necessários em cada máquina que vai gerar sugestões. O servidor de produção Ubuntu é separado do Windows/WSL de desenvolvimento; instalar no WSL não instala no servidor.
 
+## Instalação automática no servidor Ubuntu
+
+Depois de enviar esta atualização ao servidor, entre na pasta da aplicação **com o mesmo usuário, Ruby e variáveis de ambiente usados pelo deploy** e execute:
+
+```sh
+ruby script/setup_ai.rb
+```
+
+Não coloque `sudo` antes desse comando: o script pede sudo apenas para instalar pacotes e configurar os serviços, mantendo a fila com o usuário do deploy. Se você já faz o deploy como root, ele usa esse mesmo usuário. Execute fora de uma partida, pois instala/configura serviços e faz uma geração de diagnóstico.
+
+O script confere o ambiente de produção e a conexão PostgreSQL antes de instalar; instala ferramentas ausentes e o Ollama oficial se necessário; configura a API apenas em loopback com nuvem desativada; baixa `qwen2.5:1.5b` se ausente; aplica migrations; compila assets; cria e inicia **chromehoot-ai.service**; e executa o diagnóstico real. A instalação inicial precisa de internet e pode demorar devido ao download. Se houver erro, ele interrompe e informa a etapa; a configuração pode estar parcial e o script pode ser executado novamente após corrigir a causa.
+
+Se seu deploy usa um arquivo privado de variáveis que não estão carregadas no terminal:
+
+```sh
+ruby script/setup_ai.rb --env-file /CAMINHO/PRIVADO/chromehoot.env
+```
+
+O arquivo deve conter uma variável literal `KEY=valor` por linha, podendo usar aspas. Não use `export`, substituição de comandos, expansão de variáveis ou valores em várias linhas. O script lê como dados, sem executar código shell. Ele grava uma cópia normalizada para a fila em `/etc/chromehoot/ai.env`, com acesso restrito a root; não mostra os segredos na saída. Sem `--env-file`, preserva essa configuração se já existir, ou captura as variáveis de banco/segredo reconhecidas no ambiente atual. Alterações posteriores nos segredos do deploy precisam ser reaplicadas com `--env-file` apontando para a configuração atualizada.
+
+Por padrão ele não tenta adivinhar qual é o serviço web. Reinicie a aplicação pelo método habitual após a instalação, ou informe o nome correto para o script reiniciar automaticamente:
+
+```sh
+ruby script/setup_ai.rb --env-file /CAMINHO/PRIVADO/chromehoot.env --app-service NOME_DO_SERVICO_WEB
+```
+
+Outras opções:
+
+```sh
+ruby script/setup_ai.rb --dry-run          # apenas descreve, não altera nada
+ruby script/setup_ai.rb --skip-diagnose    # instala sem gerar o quiz de diagnóstico
+ruby script/setup_ai.rb --help
+sudo journalctl -u chromehoot-ai -f       # acompanhar pedidos e erros da fila
+```
+
+O script requer Ubuntu/Linux com **systemd ativo**, autorização sudo (ou root), dependências Ruby já instaladas da aplicação e acesso ao banco de produção. No WSL sem systemd, use os passos manuais abaixo. O script instala os serviços apenas na máquina onde é executado, não se conecta automaticamente ao servidor remoto.
+
+A execução completa do instalador com downloads e alterações em `/etc` não foi realizada no ambiente de desenvolvimento desta implementação. Foram verificados sintaxe, modo de simulação, tratamento de variáveis privadas e geração da unidade systemd por testes automatizados. O resultado do diagnóstico real deve ser conferido no servidor após executar.
+
 ## 1. Instalar no Ubuntu (produção) ou dentro do WSL (teste)
 
 A instalação e o primeiro download exigem internet. Consulte a [instalação oficial Linux](https://docs.ollama.com/linux). Baixe e confira o instalador oficial antes de executá-lo:
