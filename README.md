@@ -55,7 +55,7 @@ O aluno consulta o estado a cada 2 segundos durante uma questão e a cada 4 segu
 
 ## Assistente de IA local (opcional)
 
-No painel, use **Criar quiz com IA local** para gerar três a cinco questões sobre um tema e revisar antes de salvar. Usa Ollama local com `qwen2.5:1.5b`, sem chamadas para APIs pagas. Depois de instalar e baixar o modelo, a geração funciona sem internet. As partidas continuam independentes da IA.
+No painel, use **Criar quiz com IA local** para gerar três a vinte questões sobre um tema e revisar antes de salvar. Usa Ollama local com `qwen2.5:1.5b`, sem chamadas para APIs pagas. Depois de instalar e baixar o modelo, a geração funciona sem internet. As partidas continuam independentes da IA.
 
 **Se você inicia o site com `rails s -b 0.0.0.0` sem `RAILS_ENV`, use `ruby script/setup_ai.rb --environment development`**, para que a fila use o mesmo ambiente e banco. Reinicie o Rails após a instalação.
 

@@ -80,6 +80,15 @@ class ChromehootAiSetup
     '"' + value.gsub('%', '%%').gsub(/([\\"])/) { |char| "\\#{char}" } + '"'
   end
 
+  def self.unit_directory(value)
+    unless value.start_with?('/') && !value.match?(/[\n\r\0]/) && value == value.strip
+      raise 'Diretório inválido para o serviço.'
+    end
+    # WorkingDirectory consumes one path, not shell words. Wrapping it in
+    # quotes makes those quotes part of the path on supported Ubuntu releases.
+    value.gsub('%', '%%')
+  end
+
   def run
     raise 'Execute este script em Linux/Ubuntu.' unless RUBY_PLATFORM.include?('linux')
     raise 'Aplicação Rails não encontrada.' unless File.file?(File.join(@options[:app], 'bin/rails'))
@@ -98,6 +107,7 @@ class ChromehootAiSetup
     end
     raise 'systemd não está ativo. No WSL, habilite systemd ou siga docs/IA_LOCAL.md.' unless File.directory?('/run/systemd/system')
     require_command('systemctl')
+    require_command('systemd-analyze')
     @sudo = Process.uid.zero? ? [] : [ 'sudo' ]
     command('Autorizar configuração dos serviços', *@sudo, '-v') unless @sudo.empty?
     if @options[:app_service]
@@ -250,8 +260,8 @@ class ChromehootAiSetup
       [Service]
       Type=simple
       User=#{@user}
-      WorkingDirectory=#{quote.call(@options[:app])}
-      EnvironmentFile=#{quote.call(@env_path)}
+      WorkingDirectory=#{self.class.unit_directory(@options[:app])}
+      EnvironmentFile=#{self.class.unit_directory(@env_path)}
       Environment="RAILS_ENV=#{@environment}"
       Environment="OLLAMA_URL=http://127.0.0.1:11434"
       Environment="OLLAMA_MODEL=qwen2.5:1.5b"
@@ -259,12 +269,21 @@ class ChromehootAiSetup
       ExecStart=#{quote.call(@ruby)} #{quote.call(@bundle)} exec rake ai:work
       Restart=on-failure
       RestartSec=5
-      TimeoutStopSec=210
+      TimeoutStopSec=780
 
       [Install]
       WantedBy=multi-user.target
     INI
+    verify_worker(contents)
     write_root("/etc/systemd/system/#{@worker_service}", contents, '644')
+  end
+
+  def verify_worker(content)
+    Tempfile.create([ 'chromehoot-ai-check-', '.service' ]) do |file|
+      file.write(content)
+      file.flush
+      command('Validar unidade com systemd-analyze', 'systemd-analyze', 'verify', '--man=no', file.path)
+    end
   end
 
   def write_root(path, content, mode)

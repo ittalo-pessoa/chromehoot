@@ -1,6 +1,6 @@
 # Assistente de quizzes sem internet
 
-O ChromeHoot gera sugestões usando **Ollama local**, com `qwen2.5:1.5b` como padrão inicial para o servidor Ubuntu com i5 e 8 GB de RAM. O modelo precisa ser medido nesse computador; não há garantia de latência ou qualidade pedagógica. Na configuração padrão, cada pedido contém de três a cinco questões com quatro alternativas. Tudo passa por revisão explícita do professor antes de virar um quiz.
+O ChromeHoot gera sugestões usando **Ollama local**, com `qwen2.5:1.5b` como padrão inicial para o servidor Ubuntu com i5 e 8 GB de RAM. O modelo precisa ser medido nesse computador; não há garantia de latência ou qualidade pedagógica. Na configuração padrão, cada pedido contém de três a vinte questões com quatro alternativas. Tudo passa por revisão explícita do professor antes de virar um quiz.
 
 Ollama **não estava instalado no ambiente desta implementação**. Os testes automatizados validaram a integração usando um servidor HTTP local controlado, não inferência real. Os comandos abaixo são necessários em cada máquina que vai gerar sugestões. O servidor de produção Ubuntu é separado do Windows/WSL de desenvolvimento; instalar no WSL não instala no servidor.
 
@@ -152,7 +152,7 @@ EnvironmentFile=/CAMINHO/PRIVADO/chromehoot.env
 ExecStart=/CAMINHO/DO/RUBY/bin/bundle exec rake ai:work
 Restart=on-failure
 RestartSec=5
-TimeoutStopSec=210
+TimeoutStopSec=780
 
 [Install]
 WantedBy=multi-user.target
@@ -163,7 +163,7 @@ O arquivo de variáveis precisa definir as mesmas credenciais do banco/segredo d
 ## 3. Usar pela interface
 
 1. Entre como professor e abra **Assistente de IA** no menu ou **Criar quiz com IA local** no painel.
-2. Informe tema, disciplina, série, dificuldade e três a cinco questões.
+2. Informe tema, disciplina, série, dificuldade e três a vinte questões.
 3. Aguarde a geração. Pode sair e voltar em **Meus últimos pedidos**; os rascunhos são privados.
 4. Revise título, descrição, enunciados, quatro alternativas, tempo e alternativa correta. Não trate a resposta da IA como fonte confiável por si só.
 5. Marque **Revisei os enunciados, as alternativas e o gabarito** e clique em **Salvar quiz revisado**.
@@ -177,7 +177,7 @@ Não são enviados nomes, e-mails, respostas ou dados dos alunos ao modelo: some
 - Um pedido pendente por professor; até oito tentativas por professor em 15 minutos.
 - Novas gerações aguardam na fila enquanto existir partida em estado `running`. Uma geração que já começou pode continuar caso um professor inicie uma partida; prepare os quizzes antes da aula.
 - Contexto de 4096 tokens, até 2500 tokens de saída e dois threads de CPU por requisição; esses valores são um ponto inicial, não desempenho medido.
-- Limite total de três minutos por chamada, conexão de cinco segundos e resposta limitada a 128 KiB. Erros e JSON incompleto ficam visíveis no pedido, sem salvar quiz parcial.
+- Limite total de três minutos por lote, conexão de cinco segundos e resposta limitada a 128 KiB. Erros e JSON incompleto ficam visíveis no pedido, sem salvar quiz parcial.
 - `keep_alive: 0` solicita descarregar o modelo após a geração. O limite do cliente não é garantia de cancelamento imediato do cálculo no servidor Ollama; monitore seu processo em caso de timeout.
 
 ## 5. Validar o modelo real e o modo offline
@@ -205,3 +205,13 @@ bin/rails test
 Eles cobrem conexão HTTP local, schema/options/keep_alive enviados, modelo ausente, JSON malformado, resposta grande, rejeição de endereço remoto, fila e falha recuperável, revisão, permissões e salvamento idempotente. Não medem a qualidade ou o tempo de um modelo real.
 
 Referências: [API chat](https://docs.ollama.com/api/chat), [saída estruturada](https://docs.ollama.com/capabilities/structured-outputs), [configuração e memória](https://docs.ollama.com/faq), [modelo Qwen2.5](https://ollama.com/library/qwen2.5).
+
+## Quizzes com até 20 questões
+
+O professor pode escolher de 3 a 20 questões. A geração usa lotes sequenciais de até 5, enviando um resumo dos enunciados anteriores para evitar repetição. Não salva conteúdo parcial: qualquer falha exige novo pedido. Ao terminar, todas as questões aparecem na mesma revisão. O prazo de 3 minutos vale por lote; 20 questões podem exigir quatro lotes e até aproximadamente 12 minutos. A correção factual e repetições semânticas continuam dependendo da revisão do professor.
+
+Esta ampliação exige nova migration. Reexecute o instalador no mesmo ambiente do site (por exemplo `ruby script/setup_ai.rb --environment development`), que aplica a migration e atualiza o prazo de parada do serviço para 780 segundos. Não foi medida a duração real de vinte questões no i5/8 GB.
+
+## Se apareceu “bad unit file setting” na fila
+
+Uma versão anterior do instalador gerava aspas indevidas em `WorkingDirectory` e `EnvironmentFile`. O Ollama e o modelo podiam instalar normalmente, mas a fila não iniciava. Após atualizar o código, reexecute `ruby script/setup_ai.rb --environment development` (ou o ambiente correto do site). A unidade será corrigida e validada com `systemd-analyze verify` antes da instalação. O modelo já baixado é reaproveitado. O aviso de CPU-only não é essa falha de configuração.

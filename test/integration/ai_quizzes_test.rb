@@ -115,4 +115,15 @@ class AiQuizzesTest < ActionDispatch::IntegrationTest
     assert_equal "failed", draft.reload.status
     assert_match "interrompido", draft.error_message
   end
+  test "review form displays all twenty questions" do
+    user = make_quiz.user
+    sign_in(user)
+    content = generated_content
+    content["questions"] = 20.times.map { |i| generated_content["questions"].first.merge("statement" => "Pergunta #{i + 1}") }
+    draft = user.ai_quiz_drafts.create!(request_params.merge(question_count: 20, status: "ready", content: content))
+    get teacher_ai_quiz_path(draft)
+    assert_response :success
+    assert_select 'textarea[name="content[questions][19][statement]"]', 1
+    assert_select 'select[name$="[correct_index]"]', 20
+  end
 end

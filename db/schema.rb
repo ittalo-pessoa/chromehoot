@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_11_01_223000) do
+ActiveRecord::Schema[7.2].define(version: 2026_11_01_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -66,7 +66,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_11_01_223000) do
     t.index ["quiz_id"], name: "index_ai_quiz_drafts_on_quiz_id"
     t.index ["status", "created_at"], name: "index_ai_quiz_drafts_on_status_and_created_at"
     t.index ["user_id"], name: "index_ai_quiz_drafts_on_user_id"
-    t.check_constraint "question_count >= 3 AND question_count <= 5", name: "ai_question_count"
+    t.check_constraint "question_count >= 3 AND question_count <= 20", name: "ai_question_count"
     t.check_constraint "status::text = ANY (ARRAY['queued'::character varying, 'processing'::character varying, 'ready'::character varying, 'failed'::character varying, 'imported'::character varying]::text[])", name: "ai_draft_status"
   end
 

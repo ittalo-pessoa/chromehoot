@@ -29,13 +29,14 @@ class AiSetupScriptTest < ActiveSupport::TestCase
   test "worker uses the deploy ruby and protected normalized environment file" do
     setup = ChromehootAiSetup.new([])
     setup.instance_variable_set(:@bundle, "/usr/local/bin/bundle")
+    setup.define_singleton_method(:verify_worker) { |_content| }
     written = {}
     setup.define_singleton_method(:write_root) { |path, content, mode| written[path] = [ content, mode ] }
     setup.send(:install_worker)
     content, mode = written.fetch("/etc/systemd/system/chromehoot-ai.service")
     assert_includes content, RbConfig.ruby
-    assert_includes content, 'EnvironmentFile="/etc/chromehoot/ai.env"'
-    assert_includes content, "TimeoutStopSec=210"
+    assert_includes content, "EnvironmentFile=/etc/chromehoot/ai.env"
+    assert_includes content, "TimeoutStopSec=780"
     assert_includes content, "exec rake ai:work"
     assert_equal "644", mode
     assert_not_includes content, "SECRET_KEY_BASE="
@@ -53,13 +54,35 @@ class AiSetupScriptTest < ActiveSupport::TestCase
   test "development setup uses its own service and credentials file" do
     setup = ChromehootAiSetup.new([ "--environment", "development" ])
     setup.instance_variable_set(:@bundle, "/usr/local/bin/bundle")
+    setup.define_singleton_method(:verify_worker) { |_content| }
     written = {}
     setup.define_singleton_method(:write_root) { |path, content, mode| written[path] = [ content, mode ] }
     setup.send(:install_worker)
     content, = written.fetch("/etc/systemd/system/chromehoot-ai-development.service")
     assert_includes content, 'Environment="RAILS_ENV=development"'
-    assert_includes content, 'EnvironmentFile="/etc/chromehoot/ai-development.env"'
+    assert_includes content, "EnvironmentFile=/etc/chromehoot/ai-development.env"
     assert_equal "development", setup.instance_variable_get(:@app_env)["RAILS_ENV"]
     assert_not written.key?("/etc/systemd/system/chromehoot-ai.service")
+  end
+  test "generated worker passes the real systemd parser without quoted WorkingDirectory" do
+    analyzer = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "systemd-analyze") }.find { |path| File.executable?(path) }
+    skip "systemd-analyze indisponível neste ambiente" unless analyzer
+    setup = ChromehootAiSetup.new([ "--environment", "development" ])
+    setup.instance_variable_set(:@bundle, "/usr/local/bin/bundle")
+    setup.define_singleton_method(:verify_worker) { |_content| }
+    generated = nil
+    setup.define_singleton_method(:write_root) { |_path, content, _mode| generated = content }
+    setup.send(:install_worker)
+    assert_includes generated, "WorkingDirectory=#{Rails.root}"
+    assert_not_includes generated, 'WorkingDirectory="'
+    Tempfile.create([ "chromehoot-ai-regression-", ".service" ]) do |file|
+      file.write(generated)
+      file.flush
+      _out, err, status = Open3.capture3(analyzer, "verify", "--man=no", file.path)
+      assert status.success?, err
+      assert_not_includes err, "path is not absolute"
+    end
+    assert_equal "/srv/a b/100%%", ChromehootAiSetup.unit_directory("/srv/a b/100%")
+    assert_raises(RuntimeError) { ChromehootAiSetup.unit_directory("/srv/app\nUser=root") }
   end
 end

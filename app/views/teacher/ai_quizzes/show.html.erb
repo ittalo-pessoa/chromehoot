@@ -1,6 +1,6 @@
 <div class="heading"><div><p class="eyebrow">ASSISTENTE DE IA LOCAL</p><h1><%= @draft.status == 'ready' ? 'Revise seu novo desafio' : 'Seu pedido de quiz' %></h1><p><%= @draft.topic %> · <%= @draft.subject %> · <%= @draft.grade_level %></p></div><%= link_to 'Todos os pedidos', new_teacher_ai_quiz_path, class: 'button secondary' %></div>
 <% if %w[queued processing].include?(@draft.status) %>
-  <section class="card empty-state" data-controller="ai-generation" data-ai-generation-url-value="<%= state_teacher_ai_quiz_path(@draft) %>"><span aria-hidden="true">✦</span><h2 data-ai-generation-target="title"><%= @draft.status == 'queued' ? 'Seu pedido está na fila' : 'Preparando as questões…' %></h2><p data-ai-generation-target="message" role="status">Você pode sair desta página e voltar pelos seus pedidos. O quiz só será salvo após sua revisão.</p><p>Uma geração por vez para preservar a memória do servidor. Durante partidas em andamento, a fila aguarda.</p><%= link_to 'Voltar ao painel', teacher_quizzes_path, class: 'button secondary' %></section>
+  <section class="card empty-state" data-controller="ai-generation" data-ai-generation-url-value="<%= state_teacher_ai_quiz_path(@draft) %>"><span aria-hidden="true">✦</span><h2 data-ai-generation-target="title"><%= @draft.status == 'queued' ? 'Seu pedido está na fila' : 'Preparando as questões…' %></h2><p data-ai-generation-target="message" role="status">Você pode sair desta página e voltar pelos seus pedidos. O quiz só será salvo após sua revisão.</p><p>Uma geração por vez, em lotes de até cinco questões, para preservar a memória do servidor. Durante partidas em andamento, a fila aguarda.</p><%= link_to 'Voltar ao painel', teacher_quizzes_path, class: 'button secondary' %></section>
 <% elsif @draft.status == 'failed' %>
   <section class="card"><h2>Não foi possível gerar desta vez</h2><p role="alert"><%= @draft.error_message %></p><%= link_to 'Fazer novo pedido', new_teacher_ai_quiz_path, class: 'button' %></section>
 <% elsif @draft.status == 'imported' %>
@@ -10,7 +10,7 @@
   <%= form_with url: import_teacher_ai_quiz_path(@draft) do %>
     <section class="card"><%= label_tag 'content_title', 'Título' %><%= text_field_tag 'content[title]', @review['title'], required: true, maxlength: 160 %><%= label_tag 'content_description', 'Descrição' %><%= text_area_tag 'content[description]', @review['description'], maxlength: 3000 %></section>
     <% questions = @review['questions'].is_a?(Hash) ? @review['questions'].sort_by { |key, _| key.to_i }.map(&:last) : @review['questions'] %>
-    <% Array(questions).first(5).each_with_index do |question, index| %>
+    <% Array(questions).first(20).each_with_index do |question, index| %>
       <section class="card"><p class="eyebrow">QUESTÃO <%= index + 1 %></p>
         <%= label_tag "ai_statement_#{index}", 'Enunciado' %><%= text_area_tag "content[questions][#{index}][statement]", question['statement'], id: "ai_statement_#{index}", required: true, maxlength: 3000 %>
         <%= label_tag "ai_time_#{index}", 'Tempo em segundos' %><%= number_field_tag "content[questions][#{index}][time_limit_seconds]", question['time_limit_seconds'], id: "ai_time_#{index}", min: 10, max: 180, required: true %>
