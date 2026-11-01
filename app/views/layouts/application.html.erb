@@ -4,6 +4,7 @@
   <title>ChromeHoot · Aprender em equipe</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <%= csrf_meta_tags %><%= csp_meta_tag %>
+  <%= javascript_include_tag 'theme_boot', 'data-turbo-track': 'reload' %>
   <%= stylesheet_link_tag 'application', 'data-turbo-track': 'reload' %>
   <%= javascript_importmap_tags %>
 </head>
@@ -27,7 +28,7 @@
 <div class="workspace">
   <header class="topbar">
     <% if teacher_area %><span class="topbar-label">Seu espaço de aprendizagem</span><% else %><%= link_to root_path, class: 'brand' do %><%= render 'application/brand' %><% end %><% end %>
-    <nav aria-label="Acesso"><span class="local-badge"><span aria-hidden="true">●</span> Ambiente local</span><% unless teacher_area %><%= link_to(current_user ? 'Painel do professor →' : 'Área do professor →', current_user ? teacher_quizzes_path : login_path, class: 'access-link') %><% end %></nav>
+    <nav aria-label="Acesso"><label class="theme-picker"><span>Tema</span><select data-theme-picker aria-label="Tema da interface"><option value="light">☀ Claro</option><option value="dark">☾ Escuro</option></select></label><span class="local-badge"><span aria-hidden="true">●</span> Ambiente local</span><% unless teacher_area %><%= link_to(current_user ? 'Painel do professor →' : 'Área do professor →', current_user ? teacher_quizzes_path : login_path, class: 'access-link') %><% end %></nav>
   </header>
   <main id="main-content"><% flash.each do |kind, message| %><div role="status" class="notice <%= kind %>"><%= message %></div><% end %><%= yield %></main>
   <footer>ChromeHoot <span>·</span> A turma joga, aprende e cresce junto. <span class="footer-local">Recursos na rede local</span></footer>

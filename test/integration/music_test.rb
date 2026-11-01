@@ -47,6 +47,12 @@ class MusicTest < ActionDispatch::IntegrationTest
     post join_path, params: { code: game.join_code, nickname: "Bia" }
     get play_path
     assert_response :success
-    assert_select '[data-controller="music"]', 0
+    assert_select '[data-controller="music"]', 1
+    assert_select '[data-music-url-value*="chromehoot-playful"]', 1
+    url = css_select('[data-controller="music"]').first["data-music-url-value"]
+    get url
+    assert_response :success
+    assert_equal "RIFF", response.body.byteslice(0, 4)
+    assert_equal "WAVE", response.body.byteslice(8, 4)
   end
 end

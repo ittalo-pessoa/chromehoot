@@ -1,7 +1,6 @@
-<% if game.background_music.attached? %>
-  <div class="music-controls" data-controller="music" data-music-url-value="<%= rails_blob_path(game.background_music, only_path: true) %>" data-action="game:state@window->music#sync">
-    <button type="button" class="secondary" data-music-target="toggle" data-action="music#toggle" aria-pressed="false">♫ Ativar música</button>
-    <label>Volume <input type="range" min="0" max="20" value="8" step="1" aria-label="Volume da música" data-action="input->music#volume"></label>
-    <span role="status" data-music-target="message">Opcional · som baixo apenas durante as perguntas</span>
-  </div>
-<% end %>
+<% music_url = game.background_music.attached? ? rails_blob_path(game.background_music, only_path: true) : asset_path('chromehoot-playful.wav') %>
+<div class="music-controls" data-controller="music" data-music-url-value="<%= music_url %>" data-action="game:state@window->music#sync">
+  <button type="button" class="secondary" data-music-target="toggle" data-action="music#toggle" aria-pressed="false">♫ Ativar música</button>
+  <label>Volume <input type="range" min="0" max="20" value="5" step="1" aria-label="Volume da música" data-action="input->music#volume"></label>
+  <span role="status" data-music-target="message"><%= game.background_music.attached? ? 'Sua música' : 'Trilha padrão ChromeHoot' %> · som baixo apenas durante as perguntas</span>
+</div>

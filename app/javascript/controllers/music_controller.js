@@ -7,7 +7,7 @@ export default class extends Controller {
   connect() {
     this.audio = new Audio(this.urlValue)
     this.audio.loop = true
-    this.audio.volume = 0.08
+    this.audio.volume = 0.05
     this.audio.preload = "none"
     this.enabled = false
     this.active = false

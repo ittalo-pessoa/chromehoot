@@ -21,7 +21,7 @@ player.urlValue = "/local.wav"
 player.toggleTarget = { textContent: "", setAttribute() {} }
 player.messageTarget = { textContent: "" }
 player.connect()
-assert.equal(player.audio.volume, 0.08)
+assert.equal(player.audio.volume, 0.05)
 assert.equal(player.audio.loop, true)
 const state = status => ({ detail: { status: "running", server_time: new Date().toISOString(), round: { status, closes_at: new Date(Date.now() + 30000).toISOString() } } })
 player.sync(state("open"))
