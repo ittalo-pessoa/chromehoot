@@ -16,7 +16,7 @@ module AiQuizzes
           end
           return false unless draft
           begin
-            content = (client || OllamaClient.new).generate(draft)
+            content = (client || GroqClient.new).generate(draft)
             # Validate even an alternative client before storing its content.
             content = Content.call(content, count: draft.question_count)
             AiQuizDraft.where(id: draft.id, status: "processing").update_all(status: "ready", content: content, completed_at: Time.current, updated_at: Time.current)

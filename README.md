@@ -55,21 +55,29 @@ O cookie assinado e HttpOnly recupera a participação ao atualizar/reabrir o na
 
 O aluno consulta o estado a cada 2 segundos durante uma questão e a cada 4 segundos na espera; o controle consulta a cada 2 segundos. As consultas não se sobrepõem, têm limite de espera e param ao encerrar/desconectar a tela. O relógio visual usa o horário do servidor. Gabarito, acerto individual e pontuação só são enviados após revelação. O placar público inclui apenas rodadas reveladas.
 
-## Assistente de IA local (opcional)
+## Assistente de IA online (opcional)
 
-No painel, use **Criar quiz com IA local** para gerar três a vinte questões sobre um tema e revisar antes de salvar. Se a IA repetir alternativas ou devolver conteúdo estruturalmente inválido, o lote recebe uma tentativa automática de correção, mantendo o prazo máximo por lote. Usa Ollama local com `qwen2.5:1.5b`, sem chamadas para APIs pagas. Depois de instalar e baixar o modelo, a geração funciona sem internet. As partidas continuam independentes da IA.
+Use **Criar quiz com IA** para gerar de três a vinte questões com a Groq (modelo `openai/gpt-oss-20b`). Não há download de modelo nem dependência de Ollama. A geração precisa de internet no servidor e de uma `GROQ_API_KEY` do plano gratuito, sujeito às cotas do provedor. As partidas com quizzes já salvos continuam independentes da internet.
 
-**Se você inicia o site com `rails s -b 0.0.0.0` sem `RAILS_ENV`, use `ruby script/setup_ai.rb --environment development`**, para que a fila use o mesmo ambiente e banco. Reinicie o Rails após a instalação.
+Crie uma chave em https://console.groq.com/keys, mantendo a conta no plano gratuito. Atualize o código e execute, na pasta da aplicação, com o mesmo usuário/Ruby do site:
 
-**Instalação automática no Ubuntu de produção:** depois do deploy, execute `ruby script/setup_ai.rb` na pasta da aplicação, com o mesmo usuário/Ruby/ambiente do deploy. O script tenta recuperar automaticamente a configuração da aplicação em produção, sem exibir segredos, e prepara Ollama, modelo, migrations, assets e serviço da fila. Se houver mais de uma configuração, basta escolher o número indicado. Se as variáveis do deploy estão em arquivo privado, use `--env-file /caminho/do/arquivo`. Veja opções e limites em [IA_LOCAL.md](docs/IA_LOCAL.md). Reinicie o serviço web pelo método habitual ou informe `--app-service NOME`.
+```sh
+# Se inicia o site com rails s -b 0.0.0.0, sem RAILS_ENV:
+ruby script/setup_ai.rb --environment development
 
-**Para instalação manual, esta atualização exige `bin/rails db:migrate` e um processo separado `bin/rails ai:work`**, além do Ollama. Na produção, use `RAILS_ENV=production` e supervisione o processo da fila. A instalação deve ser feita separadamente no servidor Ubuntu e no WSL de testes. Veja [instalação, operação e diagnóstico da IA local](docs/IA_LOCAL.md). O modelo real ainda precisa ser instalado e medido no i5/8 GB; os testes de integração usaram uma resposta HTTP local controlada.
+# Se o site usa production:
+ruby script/setup_ai.rb
+```
+
+O instalador solicita a chave com entrada oculta se ela ainda não estiver configurada, preserva as credenciais existentes do banco, aplica migrations, compila assets em produção e atualiza/reinicia a fila. Não use sudo antes do script. Reinicie também o site. Para configuração privada específica, use `--env-file /caminho/privado/arquivo.env`. Veja [configuração e migração para Groq](docs/IA_ONLINE.md).
+
+O quiz é solicitado inteiro, com uma tentativa adicional apenas para questões ausentes ou inválidas. Tempo máximo total de dois minutos; cotas esgotadas e falhas de conexão são informadas sem tentativas repetidas. Revise sempre o conteúdo e o gabarito. Não houve medição real da API neste ambiente, pois não há uma chave configurada; os testes usam respostas controladas.
 
 ### Excluir pedidos da IA
 
 Em **Assistente de IA → Meus últimos pedidos**, use **Excluir**, ou abra o pedido e clique em **Excluir pedido de IA**. A confirmação remove pedidos na fila, em processamento, prontos ou com falha. Um quiz já salvo permanece disponível. Excluir um pedido pendente permite fazer outro, respeitando o limite de tentativas.
 
-Se o modelo já estiver calculando, o lote atual pode continuar até terminar ou atingir o limite de tempo; seu resultado é descartado e os próximos lotes não são iniciados. O pedido não volta à fila. O erro anterior `bad unit file setting` era configuração do systemd, não a existência de pedidos pendentes.
+Se uma chamada ao provedor estiver em andamento, ela pode continuar até terminar ou atingir o limite de tempo; seu resultado é descartado e nenhuma chamada de correção é iniciada. O pedido não volta à fila. O erro anterior `bad unit file setting` era configuração do systemd, não a existência de pedidos pendentes.
 
 ## Música nas perguntas
 

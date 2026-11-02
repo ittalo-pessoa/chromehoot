@@ -103,13 +103,13 @@ class AiQuizzesTest < ActionDispatch::IntegrationTest
     game = GameSessions::Create.call(user.quizzes.first)
     GameSessions::Start.call(game)
     client = Object.new
-    client.define_singleton_method(:generate) { |_draft| raise GameError, "Ollama indisponível" }
+    client.define_singleton_method(:generate) { |_draft| raise GameError, "Groq indisponível" }
     assert_not AiQuizzes::ProcessNext.call(client: client)
     assert_equal "queued", draft.reload.status
     GameSessions::Finish.call(game)
     assert AiQuizzes::ProcessNext.call(client: client)
     assert_equal "failed", draft.reload.status
-    assert_equal "Ollama indisponível", draft.error_message
+    assert_equal "Groq indisponível", draft.error_message
     draft.update!(status: "processing")
     assert_not AiQuizzes::ProcessNext.call(client: client)
     assert_equal "failed", draft.reload.status

@@ -36,10 +36,12 @@ class AiSetupScriptTest < ActiveSupport::TestCase
     content, mode = written.fetch("/etc/systemd/system/chromehoot-ai.service")
     assert_includes content, RbConfig.ruby
     assert_includes content, "EnvironmentFile=/etc/chromehoot/ai.env"
-    assert_includes content, "TimeoutStopSec=780"
+    assert_includes content, "TimeoutStopSec=150"
     assert_includes content, "exec rake ai:work"
     assert_equal "644", mode
     assert_not_includes content, "SECRET_KEY_BASE="
+    assert_not_includes content, "ollama"
+    assert_not_includes content, "GROQ_API_KEY="
   end
 
   test "dry run never executes commands or writes files" do
@@ -50,6 +52,30 @@ class AiSetupScriptTest < ActiveSupport::TestCase
     output, = capture_io { setup.run }
     assert_includes output, "SIMULAÇÃO"
     assert_includes output, "chromehoot-ai.service"
+    assert_includes output, "GROQ_API_KEY"
+  end
+
+  test "migration preserves private database settings and replaces Ollama configuration with API key" do
+    original = ENV["GROQ_API_KEY"]
+    ENV.delete("GROQ_API_KEY")
+    Tempfile.create("chromehoot-private-test-") do |file|
+      file.write("RAILS_ENV=development\nDATABASE_URL=existing-database\nGROQ_API_KEY=private-test-key\nOLLAMA_MODEL=old-model\nOLLAMA_URL=http://127.0.0.1:11434\n")
+      file.flush
+      setup = ChromehootAiSetup.new([ "--environment", "development", "--env-file", file.path ])
+      setup.instance_variable_set(:@sudo, [])
+      output, = capture_io do
+        setup.send(:load_environment)
+        setup.send(:configure_api_key)
+      end
+      values = setup.instance_variable_get(:@app_env)
+      assert_equal "existing-database", values["DATABASE_URL"]
+      assert_equal "private-test-key", values["GROQ_API_KEY"]
+      assert_not values.keys.any? { |key| key.start_with?("OLLAMA_") }
+      assert_not_includes output, "private-test-key"
+      assert_not_includes output, "existing-database"
+    end
+  ensure
+    ENV["GROQ_API_KEY"] = original
   end
   test "development setup uses its own service and credentials file" do
     setup = ChromehootAiSetup.new([ "--environment", "development" ])

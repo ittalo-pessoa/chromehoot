@@ -1,5 +1,5 @@
 namespace :ai do
-  desc "Processa a fila de quizzes com Ollama local (um por vez)"
+  desc "Processa a fila de quizzes com Groq online (um por vez)"
   task work: :environment do
     stopping = false
     %w[INT TERM].each { |signal| Signal.trap(signal) { stopping = true } }

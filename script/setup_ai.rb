@@ -11,16 +11,7 @@ require_relative 'ai_deploy_environment'
 require_relative "ai_setup_diagnosis"
 
 class ChromehootAiSetup
-  ENV_KEYS = %w[DATABASE_URL CHROMEHOOT_DATABASE_PASSWORD SECRET_KEY_BASE RAILS_MASTER_KEY PGHOST PGPORT PGUSER PGPASSWORD PGSSLMODE RAILS_MAX_THREADS].freeze
-  OLLAMA_CONFIG = <<~INI.freeze
-    [Service]
-    Environment="OLLAMA_HOST=127.0.0.1:11434"
-    Environment="OLLAMA_NO_CLOUD=1"
-    Environment="OLLAMA_NUM_PARALLEL=1"
-    Environment="OLLAMA_MAX_LOADED_MODELS=1"
-    Environment="OLLAMA_CONTEXT_LENGTH=4096"
-    Environment="OLLAMA_KEEP_ALIVE=0"
-  INI
+  ENV_KEYS = %w[DATABASE_URL CHROMEHOOT_DATABASE_PASSWORD SECRET_KEY_BASE RAILS_MASTER_KEY PGHOST PGPORT PGUSER PGPASSWORD PGSSLMODE RAILS_MAX_THREADS GROQ_API_KEY].freeze
 
   def initialize(args)
     @options = { app: File.expand_path('..', __dir__), dry_run: false, diagnose: true, environment: 'production' }
@@ -42,7 +33,7 @@ class ChromehootAiSetup
     @managed_env = @environment == 'production' ? '/etc/chromehoot/ai.env' : '/etc/chromehoot/ai-development.env'
     @source_env = @options[:env_file] || @managed_env
     @env_path = @managed_env
-    @app_env = { 'RAILS_ENV' => @environment, 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b' }
+    @app_env = { 'RAILS_ENV' => @environment }
   end
 
   # EnvironmentFile format: one literal KEY=value per line, optional shell quotes;
@@ -94,12 +85,12 @@ class ChromehootAiSetup
     raise 'Aplicação Rails não encontrada.' unless File.file?(File.join(@options[:app], 'bin/rails'))
     puts "ChromeHoot IA · aplicação: #{@options[:app]} · usuário: #{@user} · Ruby: #{RUBY_VERSION}"
     puts "Ambiente escolhido: #{@environment} · fila: #{@worker_service}"
-    puts 'Requer internet para instalar e baixar o modelo. Não publica a porta do Ollama.'
+    puts 'Usa a API Groq com plano gratuito e internet no servidor. Não instala modelos.'
     if @options[:dry_run]
       puts 'SIMULAÇÃO: nenhuma alteração será feita.'
       puts '1. Conferir systemd, sudo, Ruby, dependências e conexão da aplicação ao banco.'
-      puts '2. Instalar Ollama oficial se ausente e configurar serviço local sem nuvem.'
-      puts '3. Baixar qwen2.5:1.5b apenas se ainda não estiver instalado.'
+      puts '2. Carregar GROQ_API_KEY ou solicitá-la sem exibir no terminal.'
+      puts '3. Conferir os certificados HTTPS do servidor.'
       puts '4. Preservar/carregar variáveis privadas do deploy, migrar e compilar assets.'
       puts "5. Instalar e iniciar #{@worker_service} com o usuário e Ruby atuais."
       puts '6. Executar diagnóstico real.' if @options[:diagnose]
@@ -119,15 +110,10 @@ class ChromehootAiSetup
     discover_environment unless @options[:env_file]
     @bundle = capture('Localizar Bundler do Ruby atual', @ruby, '-e', 'require "rubygems"; print Gem.bin_path("bundler", "bundle")').strip
     # Fail before installing OS packages if deployment credentials are unavailable.
+    configure_api_key
     preflight_application
     save_environment
     install_dependencies
-    install_ollama
-    configure_ollama
-    tags = capture('Conferir modelos locais', 'curl', '--fail', '--silent', '--show-error', '--max-time', '10', 'http://127.0.0.1:11434/api/tags')
-    require 'json'
-    models = JSON.parse(tags).fetch('models', []).map { |item| item['name'] }
-    command('Baixar modelo local (pode demorar)', 'env', 'OLLAMA_HOST=127.0.0.1:11434', 'ollama', 'pull', 'qwen2.5:1.5b') unless models.include?('qwen2.5:1.5b')
     # Stop this managed worker before migrating/replacing its unit. Other workers
     # use the same PostgreSQL advisory lock and cannot generate concurrently.
     system(*@sudo, 'systemctl', 'stop', @worker_service, out: File::NULL, err: File::NULL)
@@ -142,7 +128,7 @@ class ChromehootAiSetup
       # Stop our worker during the standalone diagnostic so it cannot compete.
       command('Pausar fila para diagnóstico', *@sudo, 'systemctl', 'stop', @worker_service)
       begin
-        rails('Medir geração real com o modelo local', 'runner', 'script/check_ai.rb')
+        rails('Medir geração real pela Groq', 'runner', 'script/check_ai.rb')
       ensure
         command('Retomar fila de IA', *@sudo, 'systemctl', 'start', @worker_service)
       end
@@ -172,7 +158,9 @@ class ChromehootAiSetup
       raise 'O arquivo --env-file não existe.'
     end
     ENV_KEYS.each { |key| @app_env[key] = ENV[key] if ENV.key?(key) && !@app_env.key?(key) }
-    @app_env.merge!('RAILS_ENV' => @environment, 'OLLAMA_URL' => 'http://127.0.0.1:11434', 'OLLAMA_MODEL' => 'qwen2.5:1.5b')
+    @app_env.delete_if { |key, _| key.start_with?('OLLAMA_') }
+    @app_env['GROQ_API_KEY'] = ENV['GROQ_API_KEY'] if ENV['GROQ_API_KEY'].to_s.strip != ''
+    @app_env['RAILS_ENV'] = @environment
   end
 
   def discover_environment
@@ -219,34 +207,24 @@ class ChromehootAiSetup
     write_root(@managed_env, self.class.env_file(@app_env), '600')
   end
 
+  def configure_api_key
+    if @app_env['GROQ_API_KEY'].to_s.strip.empty?
+      raise 'Configure GROQ_API_KEY no ambiente ou no --env-file. Crie uma chave gratuita em https://console.groq.com/keys.' unless $stdin.tty?
+      require 'io/console'
+      print 'Cole sua GROQ_API_KEY (entrada oculta): '
+      @app_env['GROQ_API_KEY'] = $stdin.noecho(&:gets).to_s.strip
+      puts
+    end
+    key = @app_env['GROQ_API_KEY'].to_s.strip
+    raise 'GROQ_API_KEY vazia ou inválida.' if key.empty? || key.match?(/[\s\x00-\x1f]/)
+    @app_env['GROQ_API_KEY'] = key
+  end
+
   def install_dependencies
-    return if executable?("curl") && executable?("zstd") && File.file?("/etc/ssl/certs/ca-certificates.crt")
-    require_command("apt-get")
-    command("Atualizar lista de pacotes", *@sudo, "apt-get", "update")
-    command("Instalar ferramentas de download e extração", *@sudo, "apt-get", "install", "-y", "curl", "ca-certificates", "zstd")
-  end
-
-  def install_ollama
-    return if executable?('ollama')
-    require_command('sh')
-    Tempfile.create([ 'chromehoot-ollama-install-', '.sh' ]) do |file|
-      command('Baixar instalador oficial do Ollama', 'curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https', '--tlsv1.2', 'https://ollama.com/install.sh', '-o', file.path)
-      command('Instalar Ollama no sistema', *@sudo, 'sh', file.path)
-    end
-    require_command('ollama')
-  end
-
-  def configure_ollama
-    command('Preparar configuração do Ollama', *@sudo, 'install', '-d', '-m', '755', '/etc/systemd/system/ollama.service.d')
-    write_root('/etc/systemd/system/ollama.service.d/chromehoot.conf', OLLAMA_CONFIG, '644')
-    command('Recarregar configuração do Ollama', *@sudo, 'systemctl', 'daemon-reload')
-    command('Habilitar Ollama', *@sudo, 'systemctl', 'enable', 'ollama')
-    command('Iniciar Ollama com configuração local', *@sudo, 'systemctl', 'restart', 'ollama')
-    30.times do
-      return if system('curl', '--fail', '--silent', '--max-time', '2', 'http://127.0.0.1:11434/api/tags', out: File::NULL, err: File::NULL)
-      sleep 1
-    end
-    raise 'Ollama não iniciou. Confira: sudo journalctl -u ollama -n 50'
+    return if File.file?('/etc/ssl/certs/ca-certificates.crt')
+    require_command('apt-get')
+    command('Atualizar lista de pacotes', *@sudo, 'apt-get', 'update')
+    command('Instalar certificados HTTPS', *@sudo, 'apt-get', 'install', '-y', 'ca-certificates')
   end
 
   def install_worker
@@ -254,8 +232,9 @@ class ChromehootAiSetup
     path = ENV.fetch('PATH', '')
     contents = <<~INI
       [Unit]
-      Description=ChromeHoot - fila de IA local
-      After=network.target ollama.service
+      Description=ChromeHoot - fila de IA online (Groq)
+      After=network-online.target
+      Wants=network-online.target
 
       [Service]
       Type=simple
@@ -263,13 +242,11 @@ class ChromehootAiSetup
       WorkingDirectory=#{self.class.unit_directory(@options[:app])}
       EnvironmentFile=#{self.class.unit_directory(@env_path)}
       Environment="RAILS_ENV=#{@environment}"
-      Environment="OLLAMA_URL=http://127.0.0.1:11434"
-      Environment="OLLAMA_MODEL=qwen2.5:1.5b"
       Environment=#{quote.call("PATH=#{path}")}
       ExecStart=#{quote.call(@ruby)} #{quote.call(@bundle)} exec rake ai:work
       Restart=on-failure
       RestartSec=5
-      TimeoutStopSec=780
+      TimeoutStopSec=150
 
       [Install]
       WantedBy=multi-user.target

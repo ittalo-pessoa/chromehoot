@@ -14,7 +14,7 @@ module Teacher
         raise GameError, "Você já tem uma geração em andamento. Aguarde ou abra o pedido anterior." if current_user.ai_quiz_drafts.where(status: %w[queued processing]).exists?
         @draft.save!
       end
-      redirect_to teacher_ai_quiz_path(@draft), notice: "Pedido enviado para a IA local."
+      redirect_to teacher_ai_quiz_path(@draft), notice: "Pedido enviado para a IA."
     rescue ActiveRecord::RecordInvalid => error
       @draft = error.record
       load_history
