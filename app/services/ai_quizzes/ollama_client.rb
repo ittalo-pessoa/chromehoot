@@ -27,7 +27,7 @@ module AiQuizzes
         size = remaining == 6 ? 3 : remaining == 7 ? 4 : [ remaining, 5 ].min
         batch = draft.dup
         batch.question_count = size
-        previous = combined ? combined["questions"].map { |q| q["statement"].first(160) } : []
+        previous = combined ? combined["questions"].map { |q| q["statement"] } : []
         result = generate_batch(batch, previous_statements: previous)
         if combined
           combined["questions"].concat(result["questions"])
@@ -47,7 +47,12 @@ module AiQuizzes
       correction = nil
       begin
         attempts += 1
-        generate_attempt(draft, previous_statements: previous_statements, correction: correction)
+        result = generate_attempt(draft, previous_statements: previous_statements, correction: correction)
+        statements = result["questions"].map { |question| question["statement"].downcase }
+        if (statements & previous_statements.map(&:downcase)).any?
+          raise Content::Invalid, "Este lote repete enunciados de questões já geradas. Crie questões com enunciados diferentes dos lotes anteriores."
+        end
+        result
       rescue Content::Invalid => error
         correction = error.message
         retry if attempts < 2 && Process.clock_gettime(Process::CLOCK_MONOTONIC) < @batch_deadline
@@ -67,7 +72,7 @@ module AiQuizzes
         ]
       }
       if correction
-        payload[:messages] << { role: "user", content: "A tentativa anterior foi recusada: #{correction} Reescreva este lote inteiro corrigindo o problema. Confira se as quatro alternativas de cada questão são diferentes antes de responder." }
+        payload[:messages] << { role: "user", content: "A tentativa anterior foi recusada: #{correction} Reescreva este lote inteiro corrigindo o problema. Não repita enunciados deste lote nem dos lotes anteriores. Confira se as quatro alternativas de cada questão são diferentes antes de responder." }
       end
       response = request(payload)
       result = JSON.parse(response)
