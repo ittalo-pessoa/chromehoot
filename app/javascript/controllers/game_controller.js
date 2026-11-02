@@ -52,6 +52,9 @@ export default class extends Controller {
     const labels = { waiting: this.roleValue === "teacher" ? "Sala aberta · convide a turma e inicie quando todos estiverem prontos" : "Sala de espera · aguarde o professor", running: "Partida em andamento", finished: "Partida finalizada", cancelled: "Partida cancelada", removed: "Sua participação foi encerrada pelo professor" }
     this.statusTarget.textContent = labels[state.status]
     const round = state.round
+    const phase = `${state.status}:${round?.id}:${round?.status}:${Boolean(state.answered)}`
+    const phaseChanged = this.phase !== phase
+    this.phase = phase
     this.element.querySelectorAll("[data-game-round]").forEach(input => { input.value = round?.id || "" })
     const permitted = { start: state.status === "waiting", open_question: round?.status === "pending", close_question: round?.status === "open", reveal: round?.status === "closed", advance: round?.status === "revealed", finish: true, cancel: true }
     this.element.querySelectorAll("[data-game-command]").forEach(form => { form.querySelector("input[type=submit]").disabled = ["finished", "cancelled"].includes(state.status) || !permitted[form.dataset.gameCommand] })
@@ -77,9 +80,20 @@ export default class extends Controller {
         if (!state.participants.length) chips.append(this.node("p", "Compartilhe o código para convidar os alunos."))
         content.append(chips)
       } else if (round?.status === "pending") {
+        content.append(this.node("div", "⚑", "auth-emblem"))
         content.append(this.node("h2", "Prepare-se! A próxima questão será aberta pelo professor."))
       } else if (state.question) {
         content.append(this.node("p", `Questão ${round.number} de ${round.total}`, "question-progress"))
+        const progress = this.node("div", undefined, "round-progress")
+        progress.setAttribute("role", "progressbar")
+        progress.setAttribute("aria-label", "Progresso da partida")
+        progress.setAttribute("aria-valuemin", "0")
+        progress.setAttribute("aria-valuemax", String(round.total))
+        progress.setAttribute("aria-valuenow", String(round.number))
+        const fill = this.node("span", undefined, "round-progress-fill")
+        fill.style.width = `${Math.max(0, Math.min(100, round.number / round.total * 100))}%`
+        progress.append(fill)
+        content.append(progress)
         content.append(this.node("h2", state.question.statement))
         if (state.question.image_url) {
           const image = this.node("img", undefined, "question-image")
@@ -119,9 +133,9 @@ export default class extends Controller {
           options.append(option)
         })
         content.append(options)
-        if (state.answered && round.status !== "revealed") content.append(this.node("p", "✓ Resposta recebida! Aguarde a revelação."))
-        if (round.status === "closed") content.append(this.node("p", "Respostas encerradas. Aguarde a revelação."))
-        if (state.result) content.append(this.node("p", state.result.correct ? `Você acertou! +${state.result.points} pontos` : "Desta vez não foi. Vamos para a próxima!"))
+        if (state.answered && round.status !== "revealed") content.append(this.node("p", "✓ Resposta recebida! Aguarde a revelação.", "answer-feedback"))
+        if (round.status === "closed") content.append(this.node("p", "Respostas encerradas. Aguarde a revelação.", "answer-feedback"))
+        if (round.status === "revealed" && state.result) content.append(this.node("p", state.result.correct ? `★ Você acertou! +${state.result.points} pontos` : "Desta vez não foi. Vamos para a próxima!", `answer-feedback ${state.result.correct ? "success" : "encouragement"}`))
         if (state.answer_count !== undefined && this.roleValue === "teacher") content.append(this.node("p", `${state.answer_count} respostas recebidas`))
       }
       if (state.ranking) {
@@ -137,6 +151,9 @@ export default class extends Controller {
         })
         content.append(list)
       }
+      if (phaseChanged && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        content.animate?.([{ opacity: 0.5, transform: "translateY(8px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 240, easing: "ease-out" })
+      }
     }
     clearInterval(this.ticker)
     const tick = () => {
@@ -144,6 +161,8 @@ export default class extends Controller {
       if (!timer) return
       const seconds = Math.max(0, Math.ceil((this.remaining - (performance.now() - this.clockAt)) / 1000))
       timer.textContent = `◷ ${seconds}s restantes`
+      timer.classList.toggle("timer-urgent", seconds > 0 && seconds <= 5)
+      timer.classList.toggle("timer-ended", seconds === 0)
       if (!seconds) this.contentTarget.querySelectorAll("button").forEach(button => { button.disabled = true })
     }
     tick()

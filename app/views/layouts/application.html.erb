@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <%= csrf_meta_tags %><%= csp_meta_tag %>
   <%= javascript_include_tag 'theme_boot', 'data-turbo-track': 'reload' %>
-  <%= stylesheet_link_tag 'application', 'data-turbo-track': 'reload' %>
+  <%= stylesheet_link_tag 'application', 'gamefeel', 'data-turbo-track': 'reload' %>
   <%= javascript_importmap_tags %>
 </head>
 <% teacher_area = current_user && controller_path.start_with?('teacher/') %>
