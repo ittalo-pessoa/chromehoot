@@ -97,10 +97,17 @@ class AiQuizzesGroqClientTest < ActiveSupport::TestCase
     http = Object.new
     http.define_singleton_method(:use_ssl=) { |value| captured << value }
     %i[open_timeout= read_timeout= write_timeout=].each { |name| http.define_singleton_method(name) { |_value| } }
-    reply = Object.new
-    reply.define_singleton_method(:code) { code.to_s }
-    reply.define_singleton_method(:read_body) { |&block| block.call(body) }
-    http.define_singleton_method(:request) { |req, &block| captured << req; block.call(reply) }
+    codes = Array(code)
+    bodies = Array(body)
+    http.define_singleton_method(:request) do |req, &block|
+      captured << req
+      status = codes.size > 1 ? codes.shift : codes.first
+      response_body = bodies.size > 1 ? bodies.shift : bodies.first
+      reply = Object.new
+      reply.define_singleton_method(:code) { status.to_s }
+      reply.define_singleton_method(:read_body) { |&reader| reader.call(response_body) }
+      block.call(reply)
+    end
     factory = lambda do |host, port, proxy|
       assert_equal "api.groq.com", host
       assert_equal 443, port
@@ -142,6 +149,33 @@ class AiQuizzesGroqClientTest < ActiveSupport::TestCase
     end
     Net::HTTP.stub(:new, ->(*) { raise Timeout::Error }) do
       assert_includes assert_raises(GameError) { AiQuizzes::GroqClient.new.generate(draft(count: 3)) }.message, "dois minutos"
+    end
+  end
+
+  test "schema rejection falls back once to JSON mode with the same model and validates the result" do
+    rejected = JSON.generate(error: { code: "json_validate_failed", message: "private provider details" })
+    with_http(code: [ 400, 200 ], body: [ rejected, response(content(10)) ]) do |captured|
+      result = AiQuizzes::GroqClient.new.generate(draft)
+      assert_equal 10, result["questions"].size
+      requests = captured.reject { |item| item == true }
+      assert_equal 2, requests.size
+      payload = JSON.parse(requests.last.body)
+      assert_equal "json_object", payload.dig("response_format", "type")
+      assert_equal AiQuizzes::GroqClient::MODEL, payload["model"]
+      assert_includes payload["messages"].last["content"], "correct_index"
+    end
+  end
+
+  test "format fallback is bounded and model unavailability is distinguished" do
+    rejected = JSON.generate(error: { code: "json_validate_failed" })
+    with_http(code: 400, body: rejected) do |captured|
+      error = assert_raises(GameError) { AiQuizzes::GroqClient.new.generate(draft) }
+      assert_includes error.message, "modo compatível"
+      assert_equal 2, captured.count { |item| item.is_a?(Net::HTTP::Post) }
+    end
+    with_http(code: 404, body: JSON.generate(error: { code: "model_not_found" })) do
+      error = assert_raises(GameError) { AiQuizzes::GroqClient.new.generate(draft) }
+      assert_includes error.message, "não está disponível para esta conta"
     end
   end
 end

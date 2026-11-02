@@ -71,7 +71,7 @@ Não execute simultaneamente essa fila manual e o serviço gerenciado sem necess
 
 ## Funcionamento e limites
 
-A geração solicita todas as 3–20 questões em uma chamada, usando JSON estruturado. A aplicação ainda valida quantidade, limites de texto, alternativas distintas, enunciados distintos e índice da resposta correta. Se faltarem questões válidas, preserva as aceitas e faz uma única chamada para completar as restantes. O prazo de 120 segundos é compartilhado entre as duas chamadas. Não salva um quiz parcial nem repete automaticamente erros de cota, autenticação ou rede. O tempo real depende do provedor e da conexão; ainda não foi medido neste ambiente.
+A geração solicita todas as 3–20 questões em uma chamada, usando JSON estruturado. A aplicação ainda valida quantidade, limites de texto, alternativas distintas, enunciados distintos e índice da resposta correta. Se faltarem questões válidas, preserva as aceitas e faz uma única chamada para completar as restantes. Se a Groq recusar o formato estruturado, há uma única tentativa de compatibilidade em modo JSON para aquela chamada, com o mesmo modelo e a mesma validação local. O prazo total de 120 segundos é compartilhado entre todas as chamadas. Não salva um quiz parcial nem repete automaticamente erros de cota, autenticação ou rede. O tempo real depende do provedor e da conexão; um teste real de dez questões levou cerca de um segundo neste ambiente, sem garantia de duração para outros pedidos ou servidores.
 
 A dificuldade tem instruções próprias: fácil para conceitos básicos, média para aplicação/comparação e difícil para análise/resolução de problemas. Isso não garante qualidade factual: a revisão do professor permanece obrigatória.
 

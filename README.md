@@ -71,7 +71,7 @@ ruby script/setup_ai.rb
 
 O instalador solicita a chave com entrada oculta se ela ainda não estiver configurada, preserva as credenciais existentes do banco, aplica migrations, compila assets em produção e atualiza/reinicia a fila. Não use sudo antes do script. Reinicie também o site. Para configuração privada específica, use `--env-file /caminho/privado/arquivo.env`. Veja [configuração e migração para Groq](docs/IA_ONLINE.md).
 
-O quiz é solicitado inteiro, com uma tentativa adicional apenas para questões ausentes ou inválidas. Tempo máximo total de dois minutos; cotas esgotadas e falhas de conexão são informadas sem tentativas repetidas. Revise sempre o conteúdo e o gabarito. Não houve medição real da API neste ambiente, pois não há uma chave configurada; os testes usam respostas controladas.
+O quiz é solicitado inteiro, com uma tentativa adicional apenas para questões ausentes ou inválidas. Tempo máximo total de dois minutos; cotas esgotadas e falhas de conexão são informadas sem tentativas repetidas. Revise sempre o conteúdo e o gabarito. Foi validada uma geração real de dez questões em cerca de um segundo neste ambiente; o tempo no servidor pode variar. Os testes automatizados usam respostas controladas.
 
 ### Excluir pedidos da IA
 

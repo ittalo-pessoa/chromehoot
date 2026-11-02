@@ -75,7 +75,7 @@ module AiQuizzes
       raise GameError, "A IA devolveu um formato inválido. Faça um novo pedido."
     end
 
-    def request(payload, deadline:)
+    def request(payload, deadline:, allow_format_fallback: true)
       remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
       raise GameError, "A geração excedeu dois minutos. Tente novamente mais tarde." unless remaining.positive?
       Timeout.timeout(remaining) do
@@ -100,7 +100,28 @@ module AiQuizzes
           when 429
             raise GameError, "O limite gratuito da Groq foi atingido. Aguarde a renovação da cota e consulte os limites em console.groq.com/settings/limits."
           when 400, 404
-            raise GameError, "A Groq não aceitou a configuração do modelo. Confira a disponibilidade de #{MODEL} no painel do provedor."
+            response.read_body do |chunk|
+              raise GameError, "A resposta da IA excedeu o tamanho permitido." if body.bytesize + chunk.bytesize > MAX_BYTES
+              body << chunk
+            end
+            details = error_details(body)
+            if response.code.to_i == 400 && allow_format_fallback &&
+                (details["code"] == "json_validate_failed" || details["param"] == "response_format")
+              compatible = payload.deep_dup
+              schema = compatible.dig(:response_format, :json_schema, :schema)
+              compatible[:response_format] = { type: "json_object" }
+              compatible[:messages] << { role: "system", content: "Responda um objeto JSON que siga este esquema: #{JSON.generate(schema)}" }
+              return request(compatible, deadline: deadline, allow_format_fallback: false)
+            end
+            case details["code"]
+            when "model_not_found", "model_decommissioned"
+              raise GameError, "O modelo #{MODEL} não está disponível para esta conta na Groq. Confira as permissões do modelo no painel do provedor."
+            when "json_validate_failed"
+              raise GameError, "A Groq não conseguiu gerar o JSON das questões, mesmo no modo compatível. Faça um novo pedido."
+            else
+              parameter = %w[response_format reasoning_effort max_completion_tokens model].include?(details["param"]) ? " Parâmetro recusado: #{details['param']}." : ""
+              raise GameError, "A Groq recusou a configuração da solicitação (HTTP #{response.code.to_i}).#{parameter} Atualize o código e reinicie a fila de IA."
+            end
           else
             raise GameError, "O serviço de IA está indisponível. Tente novamente mais tarde."
           end
@@ -111,6 +132,13 @@ module AiQuizzes
       raise GameError, "A geração excedeu dois minutos. Tente novamente mais tarde."
     rescue SocketError, SystemCallError, IOError, Net::HTTPBadResponse, OpenSSL::SSL::SSLError
       raise GameError, "Não foi possível acessar a Groq. Confira a internet e os certificados HTTPS do servidor."
+    end
+
+    def error_details(body)
+      data = JSON.parse(body)
+      data.is_a?(Hash) && data["error"].is_a?(Hash) ? data["error"] : {}
+    rescue JSON::ParserError
+      {}
     end
 
     def schema
