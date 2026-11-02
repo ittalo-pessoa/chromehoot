@@ -90,6 +90,26 @@ class AiSetupScriptTest < ActiveSupport::TestCase
     assert_equal "development", setup.instance_variable_get(:@app_env)["RAILS_ENV"]
     assert_not written.key?("/etc/systemd/system/chromehoot-ai.service")
   end
+
+  test "private local file supplies only the API key without replacing database configuration" do
+    original = ENV["GROQ_API_KEY"]
+    ENV.delete("GROQ_API_KEY")
+    Dir.mktmpdir do |root|
+      source = File.join(root, "managed.env")
+      File.write(source, "DATABASE_URL=existing-db\n")
+      File.write(File.join(root, ".env.ai.local"), "GROQ_API_KEY=private-local-key\nDATABASE_URL=must-not-replace\n")
+      setup = ChromehootAiSetup.new([ "--env-file", source ])
+      setup.instance_variable_get(:@options)[:app] = root
+      setup.instance_variable_set(:@sudo, [])
+      output, = capture_io { setup.send(:load_environment) }
+      values = setup.instance_variable_get(:@app_env)
+      assert_equal "private-local-key", values["GROQ_API_KEY"]
+      assert_equal "existing-db", values["DATABASE_URL"]
+      assert_not_includes output, "private-local-key"
+    end
+  ensure
+    ENV["GROQ_API_KEY"] = original
+  end
   test "generated worker passes the real systemd parser without quoted WorkingDirectory" do
     analyzer = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "systemd-analyze") }.find { |path| File.executable?(path) }
     skip "systemd-analyze indisponível neste ambiente" unless analyzer

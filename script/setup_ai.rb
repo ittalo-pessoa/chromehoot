@@ -158,6 +158,10 @@ class ChromehootAiSetup
       raise 'O arquivo --env-file não existe.'
     end
     ENV_KEYS.each { |key| @app_env[key] = ENV[key] if ENV.key?(key) && !@app_env.key?(key) }
+    private_api_file = File.join(@options[:app], '.env.ai.local')
+    if @app_env['GROQ_API_KEY'].to_s.strip.empty? && File.file?(private_api_file)
+      @app_env['GROQ_API_KEY'] = self.class.parse_env(File.read(private_api_file))['GROQ_API_KEY']
+    end
     @app_env.delete_if { |key, _| key.start_with?('OLLAMA_') }
     @app_env['GROQ_API_KEY'] = ENV['GROQ_API_KEY'] if ENV['GROQ_API_KEY'].to_s.strip != ''
     @app_env['RAILS_ENV'] = @environment
