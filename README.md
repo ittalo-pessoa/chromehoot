@@ -37,6 +37,8 @@ O seed é idempotente. Omita `DEMO_SEED=1` para criar apenas a conta; mantenha d
 
 O painel do professor usa menu lateral em telas grandes e navegação horizontal em telas pequenas. Entrada, controle, questões, placar e relatórios se reorganizam para celular, tablet e computador, com recursos visuais locais. O resumo final do aluno mostra acertos, posição, pontos e desempenho individual por questão; o relatório usa gráficos calculados dos registros reais.
 
+No cabeçalho, o seletor **Tema** alterna entre claro e escuro e salva a preferência no navegador. Sem uma escolha salva, acompanha a preferência inicial do sistema.
+
 ## Abrir e jogar
 
 ```sh
@@ -55,7 +57,7 @@ O aluno consulta o estado a cada 2 segundos durante uma questão e a cada 4 segu
 
 ## Assistente de IA local (opcional)
 
-No painel, use **Criar quiz com IA local** para gerar três a vinte questões sobre um tema e revisar antes de salvar. Usa Ollama local com `qwen2.5:1.5b`, sem chamadas para APIs pagas. Depois de instalar e baixar o modelo, a geração funciona sem internet. As partidas continuam independentes da IA.
+No painel, use **Criar quiz com IA local** para gerar três a vinte questões sobre um tema e revisar antes de salvar. Se a IA repetir alternativas ou devolver conteúdo estruturalmente inválido, o lote recebe uma tentativa automática de correção, mantendo o prazo máximo por lote. Usa Ollama local com `qwen2.5:1.5b`, sem chamadas para APIs pagas. Depois de instalar e baixar o modelo, a geração funciona sem internet. As partidas continuam independentes da IA.
 
 **Se você inicia o site com `rails s -b 0.0.0.0` sem `RAILS_ENV`, use `ruby script/setup_ai.rb --environment development`**, para que a fila use o mesmo ambiente e banco. Reinicie o Rails após a instalação.
 
@@ -69,11 +71,13 @@ Em **Assistente de IA → Meus últimos pedidos**, use **Excluir**, ou abra o pe
 
 Se o modelo já estiver calculando, o lote atual pode continuar até terminar ou atingir o limite de tempo; seu resultado é descartado e os próximos lotes não são iniciados. O pedido não volta à fila. O erro anterior `bad unit file setting` era configuração do systemd, não a existência de pedidos pendentes.
 
-## Música opcional nas perguntas
+## Música nas perguntas
 
-Em **Editar informações** do quiz, envie a música em MP3, OGG, WAV ou M4A (até 15 MB), salve e crie uma **nova sala**. O áudio é copiado para a partida, servido pelo Active Storage local e incluído no backup de arquivos. Alterar o quiz não muda a música de uma sala já criada. Não foi incluída a gravação de Super Mario World: é necessário fornecer o arquivo desejado.
+Todas as salas já têm uma trilha padrão original do ChromeHoot, de 16 segundos em repetição, servida localmente e sem depender de uploads ou internet.
 
-Na sala, clique em **Ativar música** no navegador que deverá tocar o som (por exemplo, apenas na projeção do professor). O som começa em 8% e pode ser ajustado até 20% ou silenciado. Só toca durante perguntas abertas, pausa no encerramento das respostas/prazo, na finalização e ao sair da tela. O navegador pode exigir nova interação para liberar a reprodução; a interface trata esse bloqueio sem interromper o jogo. Sem áudio enviado, a partida continua normalmente e não exibe controles musicais.
+Para trocar a trilha, em **Editar informações** do quiz, envie a música em MP3, OGG, WAV ou M4A (até 15 MB), salve e crie uma **nova sala**. O áudio é copiado para a partida, servido pelo Active Storage local e incluído no backup de arquivos. Alterar o quiz não muda a música de uma sala já criada. Não foi incluída a gravação de Super Mario World: é necessário fornecer o arquivo desejado.
+
+Na sala, clique em **Ativar música** no navegador que deverá tocar o som (por exemplo, apenas na projeção do professor). O som começa em 5% e pode ser ajustado até 20% ou silenciado. Só toca durante perguntas abertas, pausa no encerramento das respostas/prazo, na finalização e ao sair da tela. O navegador pode exigir nova interação para liberar a reprodução; a interface trata esse bloqueio sem interromper o jogo. Sem áudio enviado, os controles usam a trilha padrão. O som é opcional e só começa após o clique em Ativar música.
 
 ## Validação
 
@@ -81,6 +85,7 @@ Na sala, clique em **Ativar música** no navegador que deverá tocar o som (por 
 bin/rails db:test:prepare
 bin/rails test
 node test/javascript/music_controller_test.mjs
+node test/javascript/theme_test.mjs
 RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop
 bundle exec brakeman --no-pager
 ```

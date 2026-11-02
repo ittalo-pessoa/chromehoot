@@ -14,7 +14,7 @@ Data: 01/11/2026. Ambiente Linux local. Aplicação existente preservada; nenhum
 ## Comandos e evidências
 
 - `bin/rails db:migrate`: migrations executadas no PostgreSQL real, incluindo Active Storage, chaves estrangeiras, índices únicos e checks.
-- `bin/rails test`: **60 testes, 531 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
+- `bin/rails test`: **63 testes, 556 verificações, zero falhas, zero erros, zero testes ignorados**. Inclui serviços, integrações, concorrência e idempotência dos seeds.
 - `bin/rails zeitwerk:check`: carregamento de classes aprovado.
 - `RUBOCOP_CACHE_ROOT=tmp/rubocop bin/rubocop`: código Ruby verificado.
 - `node --input-type=module --check < app/javascript/controllers/game_controller.js`: sintaxe JavaScript verificada.
@@ -104,3 +104,13 @@ Reproduzido com systemd 249: `WorkingDirectory` entre aspas era interpretado com
 ## Exclusão de quizzes e pedidos de IA
 
 Botões com confirmação nos quizzes, histórico de pedidos e tela de revisão/espera. Quizzes sem partidas são apagados com questões e alternativas; quizzes com partidas são arquivados, preservando snapshots e relatórios. Pedidos de IA podem ser apagados em qualquer estado e a exclusão não remove quizzes importados. A fila grava resultados/erros somente se o pedido continua em processamento, evitando reaparecimento após exclusão. O cliente verifica se o pedido ainda existe antes de cada lote. Testes cobrem propriedade, exclusão física, preservação histórica, vínculo da importação, novo pedido após limpar a fila e descarte tanto de sucesso quanto de erro após exclusão durante geração.
+
+## Trilha padrão e temas claro/escuro
+
+Incluída trilha original sintetizada de 16 segundos em WAV local, regenerável por `script/generate_default_music.py`, sem amostras de terceiros. Salas sem upload usam essa trilha, inclusive salas existentes; uploads continuam tendo prioridade. Volume inicial reduzido para 5%, mantendo ativação explícita, silenciamento e pausa ao fechar a pergunta. Integração verifica retorno WAV local e upload personalizado; teste JavaScript de música passou.
+
+Seletor claro/escuro no cabeçalho, com restauração antes do CSS, persistência localStorage e suporte às navegações Turbo. Testes JavaScript confirmam escolha salva, alternância, preferência inicial do sistema e armazenamento bloqueado. Integração confirma seletor acessível e bootstrap local. CSS inclui cores escuras para painel, formulários, alternativas, placar, resultado, IA e relatórios. Teste visual de navegador, conferência auditiva e acessibilidade manual continuam pendentes nos dispositivos reais. Sem migration adicional.
+
+## Correção automática de lotes inválidos
+
+Adicionado erro específico de validação de conteúdo e uma nova tentativa por lote com feedback ao modelo. O prazo original de três minutos cobre ambas as tentativas; lotes anteriores não são regenerados. Falhas de rede/modelo permanecem sem retry. Testes verificam rejeição de alternativas repetidas, sucesso da correção sem alterar o índice correto, falha após duas tentativas e ausência de repetição em falhas de rede. Não houve medição da taxa de melhoria com o modelo real no servidor do usuário.

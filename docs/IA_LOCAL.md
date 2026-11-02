@@ -219,3 +219,7 @@ Uma versão anterior do instalador gerava aspas indevidas em `WorkingDirectory` 
 ## Remover pedidos indesejados
 
 Cada pedido em Meus últimos pedidos e na própria tela tem botão Excluir com confirmação. Pedidos em fila são removidos antes da geração. Em processamento, o cálculo atual no Ollama pode terminar, mas o resultado não é salvo e nenhum lote seguinte é solicitado. A exclusão não apaga um quiz já importado. Apenas o dono pode excluir. Pedidos pendentes não são a causa de erro de sintaxe da unidade systemd.
+
+## Alternativas repetidas geradas pelo modelo
+
+Se um lote tiver alternativas repetidas ou outro erro de validação estrutural, o cliente faz uma tentativa adicional automaticamente, enviando a descrição do problema à IA e mantendo os lotes anteriores válidos. O limite de três minutos é compartilhado entre as duas tentativas do lote. Falhas de conexão/modelo não são repetidas por esse mecanismo. Se as duas respostas forem inválidas, o pedido falha sem salvar quiz parcial; a validação do gabarito e a revisão do professor continuam obrigatórias. Ao atualizar este código, reinicie a fila (por exemplo `sudo systemctl restart chromehoot-ai-development`) antes de criar novo pedido.
