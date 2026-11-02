@@ -45,7 +45,8 @@ class AiQuizRetryTest < ActiveSupport::TestCase
     second = data.merge("questions" => 5.times.map { |i| data["questions"].first.merge("statement" => "Nova pergunta #{i}") })
     repeated = second.deep_dup
     repeated["questions"][0]["statement"] = first["questions"][0]["statement"].upcase
-    outputs = [ first, repeated, second ].map { |content| JSON.generate(done: true, message: { content: JSON.generate(content) }) }
+    replacement = second.merge("questions" => [ second["questions"].first ])
+    outputs = [ first, repeated, replacement ].map { |content| JSON.generate(done: true, message: { content: JSON.generate(content) }) }
     calls = []
     client = AiQuizzes::OllamaClient.new
     client.define_singleton_method(:request) { |payload| calls << payload; outputs.shift }
@@ -58,7 +59,9 @@ class AiQuizRetryTest < ActiveSupport::TestCase
     assert_equal first["questions"].map { |q| q["statement"] }, result["questions"].first(5).map { |q| q["statement"] }
     assert_equal 10, result["questions"].map { |q| q["statement"].downcase }.uniq.size
     assert_includes calls.last[:messages].last[:content], "repete enunciados"
-    assert_equal first["questions"].map { |q| q["statement"] }, JSON.parse(calls.last[:messages][1][:content])["evite_repetir_estes_enunciados"]
+    assert_equal 1, calls.last[:format][:properties][:questions][:minItems]
+    assert_equal 1, JSON.parse(calls.last[:messages][1][:content])["quantidade"]
+    assert_equal (first["questions"] + second["questions"].drop(1)).map { |q| q["statement"] }, JSON.parse(calls.last[:messages][1][:content])["evite_repetir_estes_enunciados"]
   end
 
   test "repeated statements across batches stop after two attempts on the failing batch" do
